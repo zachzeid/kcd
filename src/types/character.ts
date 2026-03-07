@@ -1,0 +1,83 @@
+export type Race =
+  | "Human"
+  | "Common Elf"
+  | "Forest Elf"
+  | "Dwarf"
+  | "Halfling"
+  | "Half-Ogre"
+  | "Half-Orc"
+  | "Hybrid";
+
+export type CharacterClass = "Warrior" | "Rogue" | "Cleric" | "Mage";
+
+export interface BonusSkill {
+  name: string;
+  count: number;
+}
+
+export interface RaceInfo {
+  name: Race;
+  description: string;
+  society: string;
+  bonusSkills: BonusSkill[];
+  costumingRequirements: string;
+  bodyPointsByLevel: number[]; // index 0 = level 1, up to level 30
+}
+
+export interface SkillDefinition {
+  name: string;
+  category: string;
+  costs: Record<CharacterClass, number>;
+  maxPurchases: number;
+  selfTaught: boolean;
+  prerequisite?: string;
+  description: string;
+  specialization?: boolean;
+}
+
+export interface WeaponInfo {
+  name: string;
+  size: string;
+  baseDamage: number | string;
+  hand: "1H" | "2H";
+  characteristics: string;
+  group: string;
+}
+
+export interface EquipmentItem {
+  name: string;
+  category: string;
+  cost: number;
+  requiresSkill?: string;
+  maxAtCreation?: number;
+}
+
+export interface PurchasedSkill {
+  skillName: string;
+  specialization?: string;
+  purchaseCount: number;
+  totalCost: number;
+}
+
+export interface PurchasedEquipment {
+  itemName: string;
+  quantity: number;
+  totalCost: number;
+}
+
+export interface Character {
+  name: string;
+  race: Race;
+  characterClass: CharacterClass;
+  level: number;
+  xp: number;
+  bodyPoints: number;
+  skillPoints: number;
+  skillPointsSpent: number;
+  skills: PurchasedSkill[];
+  startingSilver: number;
+  silverSpent: number;
+  equipment: PurchasedEquipment[];
+  history: string;
+  freeLanguage: string;
+}

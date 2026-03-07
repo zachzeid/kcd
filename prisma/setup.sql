@@ -1,0 +1,24 @@
+-- Kanar Character Checkout Database Setup
+-- Run: sqlite3 prisma/dev.db < prisma/setup.sql
+
+CREATE TABLE IF NOT EXISTS User (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  hashedPassword TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS Character (
+  id TEXT PRIMARY KEY,
+  userId TEXT NOT NULL,
+  name TEXT NOT NULL,
+  data TEXT NOT NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (userId) REFERENCES User(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS Character_userId_idx ON Character(userId);
