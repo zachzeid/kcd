@@ -12,10 +12,13 @@ model User {
   email          String      @unique
   name           String
   hashedPassword String
-  role           String      @default("user") // "user" or "admin"
+  role           String      @default("user") // user, admin, cbd, gm, economy_marshal, play_master
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   characters     Character[]
+  registrations  EventRegistration[]
+  signOuts       CharacterSignOut[]
+  itemSubmissions ItemSubmission[]
 }
 
 model Character {
@@ -24,8 +27,229 @@ model Character {
   user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String
   data           String   // JSON blob of full character data
+  status         String   @default("draft") // draft, pending_review, approved, rejected, checked_in, checked_out, retired
+  reviewNotes    String?  // Staff feedback on review
+  reviewedBy     String?  // User ID of reviewer
+  reviewedAt     DateTime?
+  submittedAt    DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  auditLogs      AuditLog[]
+  signOuts       CharacterSignOut[]
+  itemSubmissions ItemSubmission[]
+  bank           PlayerBank?
+
   @@index([userId])
+  @@index([status])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  characterId    String
+  character      Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  actorId        String   // User ID who performed the action
+  actorName      String   // Denormalized for display
+  actorRole      String   // Role at time of action
+  action         String   // created, updated, submitted, approved, rejected, status_change, deleted
+  details        String?  // JSON: what changed, notes, etc.
+  createdAt      DateTime @default(now())
+
+  @@index([characterId])
+  @@index([actorId])
+}
+
+model Event {
+  id             String              @id @default(cuid())
+  name           String
+  date           DateTime
+  endDate        DateTime?
+  location       String?
+  description    String?
+  ticketPriceA   Int                 @default(3500) // in cents
+  ticketPriceB   Int                 @default(4500)
+  dayPassPrice   Int                 @default(2000)
+  status         String              @default("upcoming") // upcoming, active, completed, cancelled
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  registrations  EventRegistration[]
+  signOuts       CharacterSignOut[]
+  itemSubmissions ItemSubmission[]
+}
+
+model EventRegistration {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  characterId    String?  // Character checked in with (null = NPC/observer)
+  ticketType     String   // single_a, single_b, day_pass, season_pass
+  amountPaid     Int      @default(0) // in cents
+  paymentStatus  String   @default("unpaid") // unpaid, paid, comped
+  arfSignedAt    DateTime? // null means ARF not yet signed for this year
+  arfYear        Int?      // year the ARF covers (e.g. 2026)
+  checkedInAt    DateTime?
+  checkedOutAt   DateTime?
+  xpEarned       Int       @default(0)
+  npcMinutes     Int       @default(0)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  signOut        CharacterSignOut?
+
+  @@unique([userId, eventId])
+  @@index([eventId])
+  @@index([userId])
+}
+
+model LoreEntry {
+  id          String   @id @default(cuid())
+  title       String
+  content     String   // Full text of the lore entry
+  summary     String   // Brief summary for search results
+  source      String   // e.g. "Mystic Quill - March 2019"
+  sourceUrl   String?  // Link to original PDF
+  date        String?  // In-world or publication date
+  year        Int?     // Publication year for filtering
+  month       Int?     // Publication month
+  locations   String?  // JSON array of location names
+  characters  String?  // JSON array of character names mentioned
+  tags        String?  // JSON array of tags (e.g. "battle", "politics", "magic")
+  category    String   @default("story") // story, announcement, recap, obituary, rumor
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([year])
+  @@index([category])
+}
+
+model LoreCharacter {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  title       String?  // e.g. "Lord", "Lady", "Captain"
+  race        String?
+  class       String?
+  faction     String?  // Guild, kingdom, organization
+  description String?
+  firstMentioned String? // Source of first appearance
+  assignedToId String?  // User ID if assigned to a player (GM only)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([assignedToId])
+}
+
+model CharacterSignOut {
+  id                 String   @id @default(cuid())
+  characterId        String
+  character          Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventId            String
+  event              Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  registrationId     String   @unique
+  registration       EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  status             String   @default("pending") // pending, processed, rejected
+
+  // NPC/staff hours
+  npcMinutes         Int      @default(0)
+  npcDetails         String?
+  staffMinutes       Int      @default(0)
+  staffDetails       String?
+
+  // Life credits
+  lifeCreditsLost    Int      @default(0)
+
+  // Skills learned/taught - stored as JSON arrays
+  skillsLearned      String?  // JSON: [{skillName, count, teacherName, teacherCharacter}]
+  skillsTaught       String?  // JSON: [{skillName, studentNames}]
+
+  // Event feedback
+  eventRating        Int?     // 1-10
+  roleplayQuality    String?  // outstanding, excellent, above_average, average, below_average, poor, abysmal
+  enjoyedEncounters  String?
+  dislikedEncounters String?
+  notableRoleplay    String?
+  atmosphereFeedback String?
+
+  // Between-event action
+  betweenEventAction  String  @default("nothing") // adventuring, researching, crafting, traveling, governing, nothing
+  betweenEventDetails String? // JSON: conditional fields based on action type
+
+  // Processing
+  processedBy        String?
+  processedAt        DateTime?
+  processNotes       String?
+  xpAwarded          Int      @default(0) // XP calculated from this sign-out
+
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([characterId, eventId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([status])
+}
+
+model ItemSubmission {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characterId      String
+  character        Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  eventId          String?
+  event            Event?   @relation(fields: [eventId], references: [id])
+
+  itemType         String   // alchemy, armor, herbs, enchanting, magic_item, potions, scrolls, toxins, traps, weapons, misc_craft, coin_earning
+  itemName         String
+  itemDescription  String?
+  craftingSkill    String   // skill name used
+  craftingLevel    Int      // skill level
+  quantity         Int      @default(1)
+  craftingTime     String?  // e.g. "4 of 4 weeks"
+  primaryMaterial  String?
+  secondaryMaterial String?
+  masterCrafted    Boolean  @default(false)
+  extraDetails     String?  // JSON blob for type-specific fields
+
+  status           String   @default("pending") // pending, approved, denied
+  processedBy      String?
+  processedAt      DateTime?
+  processNotes     String?
+  tagIssued        Boolean  @default(false)
+
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([userId])
+  @@index([characterId])
+  @@index([status])
+  @@index([itemType])
+}
+
+model PlayerBank {
+  id               String   @id @default(cuid())
+  characterId      String   @unique
+  character        Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  balance          Int      @default(5000) // in copper (50 silver = 5000 copper)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  transactions     BankTransaction[]
+}
+
+model BankTransaction {
+  id               String   @id @default(cuid())
+  bankId           String
+  bank             PlayerBank @relation(fields: [bankId], references: [id], onDelete: Cascade)
+  type             String   // deposit, withdrawal, profession_earning, starting_equipment, skill_training, admin_adjustment
+  amount           Int      // positive = credit, negative = debit (in copper)
+  description      String
+  eventId          String?
+  processedBy      String?
+  createdAt        DateTime @default(now())
+
+  @@index([bankId])
 }

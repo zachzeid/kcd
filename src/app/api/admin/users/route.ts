@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ALL_ROLES, canManageUsers } from "@/lib/roles";
 
-async function requireAdmin() {
+async function requireUserManager() {
   const session = await auth();
   if (!session?.user?.id) return null;
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (!user || user.role !== "admin") return null;
+  if (!user || !canManageUsers(user.role)) return null;
   return user;
 }
 
 // GET: List all users (admin only)
 export async function GET() {
-  const admin = await requireAdmin();
+  const admin = await requireUserManager();
   if (!admin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -34,13 +35,13 @@ export async function GET() {
 
 // PATCH: Update user role (admin only)
 export async function PATCH(req: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireUserManager();
   if (!admin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { userId, role } = await req.json();
-  if (!userId || !["user", "admin"].includes(role)) {
+  if (!userId || !ALL_ROLES.includes(role)) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
@@ -54,7 +55,7 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE: Delete a user (admin only)
 export async function DELETE(req: NextRequest) {
-  const admin = await requireAdmin();
+  const admin = await requireUserManager();
   if (!admin) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

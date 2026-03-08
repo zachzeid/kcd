@@ -9,6 +9,7 @@ interface Props {
   characterClass: CharacterClass;
   purchasedSkills: PurchasedSkill[];
   skillPointsRemaining: number;
+  skillPointsTotal: number;
   bonusSkillNames: string[];
   onAddSkill: (skillName: string, cost: number) => void;
   onRemoveSkill: (skillName: string) => void;
@@ -30,10 +31,13 @@ function getSkillCost(
   return baseCost;
 }
 
+export { getSkillCost };
+
 export default function SkillsStep({
   characterClass,
   purchasedSkills,
   skillPointsRemaining,
+  skillPointsTotal,
   bonusSkillNames,
   onAddSkill,
   onRemoveSkill,
@@ -66,7 +70,7 @@ export default function SkillsStep({
               skillPointsRemaining < 0 ? "text-red-500" : "text-green-400"
             }`}
           >
-            {skillPointsRemaining} / 140
+            {skillPointsRemaining} / {skillPointsTotal}
           </div>
         </div>
       </div>
@@ -118,13 +122,17 @@ export default function SkillsStep({
           );
           const prereqMet = prereqCheck.met;
           const prereqBlocked = !prereqMet && currentPurchases === 0;
+          const tooExpensive = canBuyMore && !prereqBlocked && nextCost > skillPointsRemaining;
+          const unavailable = prereqBlocked || (!canBuyMore && currentPurchases > 0) || tooExpensive;
 
           return (
             <div
               key={skill.name}
               className={`flex items-center justify-between p-3 rounded-lg border ${
-                prereqBlocked
-                  ? "bg-gray-900/30 border-gray-800 opacity-60"
+                unavailable && currentPurchases === 0
+                  ? "bg-gray-900/30 border-gray-800 opacity-50"
+                  : unavailable
+                  ? "bg-gray-800/30 border-gray-700/50 opacity-70"
                   : "bg-gray-800/50 border-gray-700"
               }`}
             >

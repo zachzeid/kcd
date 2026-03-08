@@ -5,16 +5,45 @@ import { useParams } from "next/navigation";
 import { Character } from "@/types/character";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
+import { xpTable } from "@/data/xp-table";
+
+interface EventHistory {
+  eventId: string;
+  eventTitle: string;
+  startDate: string;
+  endDate: string;
+  location: string;
+  xpEarned: number;
+  npcMinutes: number;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+}
+
+interface CharacterHistory {
+  characterId: string;
+  characterName: string;
+  currentLevel: number;
+  totalXP: number;
+  totalNPCMinutes: number;
+  eventsAttended: number;
+  eventHistory: EventHistory[];
+}
 
 export default function PrintPage() {
   const params = useParams();
   const [character, setCharacter] = useState<Character | null>(null);
+  const [history, setHistory] = useState<CharacterHistory | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/characters/${params.id}`)
-      .then((r) => r.json())
-      .then((d) => setCharacter(d.data))
+    Promise.all([
+      fetch(`/api/characters/${params.id}`).then((r) => r.json()),
+      fetch(`/api/characters/${params.id}/history`).then((r) => r.json()),
+    ])
+      .then(([charData, historyData]) => {
+        setCharacter(charData.data);
+        setHistory(historyData);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params.id]);
@@ -32,6 +61,13 @@ export default function PrintPage() {
   const classInfo = classes.find((c) => c.name === character.characterClass);
   const raceBP = raceInfo?.bodyPointsByLevel[0] ?? 0;
   const classBP = classInfo?.bodyPointsByLevel[0] ?? 0;
+
+  // Calculate XP progression
+  const currentLevelXP = xpTable[character.level - 1] ?? 0;
+  const nextLevelXP = xpTable[character.level] ?? 999999;
+  const totalXP = history?.totalXP ?? 0;
+  const xpProgress = totalXP - currentLevelXP;
+  const xpNeeded = nextLevelXP - currentLevelXP;
 
   return (
     <div className="print-sheet">
@@ -146,6 +182,42 @@ export default function PrintPage() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {history && history.eventsAttended > 0 && (
+        <>
+          <SectionHeader>Career Progression</SectionHeader>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
+            <StatBox label="Total XP" value={history.totalXP} />
+            <StatBox label="Events" value={history.eventsAttended} />
+            <StatBox label="NPC Hours" value={Math.floor(history.totalNPCMinutes / 60)} />
+            <StatBox label="Next Level XP" value={character.level < 30 ? xpNeeded - xpProgress : 0} />
+          </div>
+
+          <SectionHeader>Event History</SectionHeader>
+          <table style={{ width: "100%", fontSize: "10pt", borderCollapse: "collapse", marginBottom: "1rem" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid #333" }}>
+                <th style={{ textAlign: "left", padding: "3px 4px" }}>Event</th>
+                <th style={{ textAlign: "left", padding: "3px 4px" }}>Date</th>
+                <th style={{ textAlign: "center", padding: "3px 4px" }}>XP</th>
+                <th style={{ textAlign: "center", padding: "3px 4px" }}>NPC Min</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.eventHistory.map((evt) => (
+                <tr key={evt.eventId} style={{ borderBottom: "1px solid #ddd" }}>
+                  <td style={{ padding: "2px 4px" }}>{evt.eventTitle}</td>
+                  <td style={{ padding: "2px 4px" }}>
+                    {new Date(evt.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </td>
+                  <td style={{ textAlign: "center", padding: "2px 4px" }}>{evt.xpEarned}</td>
+                  <td style={{ textAlign: "center", padding: "2px 4px" }}>{evt.npcMinutes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
       )}
 
       {character.history && (

@@ -51,8 +51,7 @@ export default function RegisterPage() {
     if (result?.error) {
       setError("Registered but could not sign in automatically. Please sign in.");
     } else {
-      router.push("/");
-      router.refresh();
+      window.location.href = "/";
     }
   };
 
