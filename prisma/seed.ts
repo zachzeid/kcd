@@ -3,8 +3,9 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { hash } from "bcryptjs";
 import path from "path";
 
-const dbPath = path.join(process.cwd(), "dev.db");
-const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
+const url = process.env.DATABASE_URL || `file:${path.join(process.cwd(), "dev.db")}`;
+const authToken = process.env.DATABASE_AUTH_TOKEN || undefined;
+const adapter = new PrismaLibSql({ url, authToken });
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
