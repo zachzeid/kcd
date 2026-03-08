@@ -46,7 +46,7 @@ const SEASON_PRICES: Record<string, number> = {
 };
 
 export default function EventsPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [events, setEvents] = useState<EventData[]>([]);
   const [loading, setLoading] = useState(true);

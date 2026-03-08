@@ -75,7 +75,6 @@ export default function GMDepartment() {
   const refresh = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
-    setLoading(true);
     if (subTab === "events") {
       fetch("/api/admin/events")
         .then((r) => {
@@ -94,8 +93,6 @@ export default function GMDepartment() {
         .then(setBeas)
         .catch(() => setBeas([]))
         .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
     }
   }, [subTab, refreshKey]);
 

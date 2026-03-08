@@ -30,7 +30,6 @@ export default function EconomyDepartment() {
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
     if (subTab === "items") {
       fetch("/api/admin/economy/items")
         .then((r) => {
@@ -49,8 +48,6 @@ export default function EconomyDepartment() {
         .then(setBanks)
         .catch(() => setBanks([]))
         .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
     }
   }, [subTab]);
 

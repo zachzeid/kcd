@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -40,7 +40,7 @@ const CATEGORY_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function CompendiumPage() {
-  const { data: session, status } = useSession();
+  const { status } = useSession();
   const router = useRouter();
   const [tab, setTab] = useState<"history" | "characters">("history");
   const [entries, setEntries] = useState<LoreEntry[]>([]);
@@ -59,40 +59,44 @@ export default function CompendiumPage() {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  const loadEntries = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("q", search);
-    if (yearFilter) params.set("year", yearFilter);
-    if (categoryFilter) params.set("category", categoryFilter);
-    params.set("page", String(page));
-
-    const res = await fetch(`/api/lore?${params}`);
-    if (res.ok) {
-      const data = await res.json();
-      setEntries(data.entries);
-      setTotal(data.total);
-      setTotalPages(data.totalPages);
-    }
-    setLoading(false);
-  }, [search, yearFilter, categoryFilter, page]);
-
-  const loadCharacters = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set("q", search);
-    const res = await fetch(`/api/lore/characters?${params}`);
-    if (res.ok) {
-      setCharacters(await res.json());
-    }
-    setLoading(false);
-  }, [search]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const refreshData = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
     if (status !== "authenticated") return;
-    if (tab === "history") loadEntries();
-    else loadCharacters();
-  }, [status, tab, loadEntries, loadCharacters]);
+    let cancelled = false;
+
+    if (tab === "history") {
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      if (yearFilter) params.set("year", yearFilter);
+      if (categoryFilter) params.set("category", categoryFilter);
+      params.set("page", String(page));
+
+      fetch(`/api/lore?${params}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!cancelled && data) {
+            setEntries(data.entries);
+            setTotal(data.total);
+            setTotalPages(data.totalPages);
+          }
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    } else {
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+
+      fetch(`/api/lore/characters?${params}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!cancelled && data) setCharacters(data);
+        })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    }
+
+    return () => { cancelled = true; };
+  }, [status, tab, search, yearFilter, categoryFilter, page, refreshKey]);
 
   const viewEntry = async (id: string) => {
     setSelectedEntry(id);
@@ -107,8 +111,7 @@ export default function CompendiumPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    if (tab === "history") loadEntries();
-    else loadCharacters();
+    refreshData();
   };
 
   if (status === "loading") {

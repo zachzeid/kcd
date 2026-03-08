@@ -17,7 +17,6 @@ export default function AdminDepartment() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
     fetch("/api/admin/users")
       .then((r) => (r.ok ? r.json() : []))
       .then((data) => setUsers(Array.isArray(data) ? data : []))

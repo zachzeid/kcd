@@ -41,7 +41,6 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    setLoading(true);
     if (subTab === "signouts") {
       fetch("/api/admin/cbd/signouts")
         .then((r) => {

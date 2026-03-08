@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Race, CharacterClass, Character, PurchasedSkill, PurchasedEquipment } from "@/types/character";
@@ -91,7 +91,6 @@ export default function Home() {
   const silverRemaining = STARTING_SILVER - silverSpent;
 
   const userRole = (session?.user as { role?: string })?.role ?? "user";
-  const isAdmin = userRole === "admin";
   const userIsStaff = isStaff(userRole);
   const userCanEditOwn = canEditOwnCharacters(userRole);
 
@@ -99,20 +98,23 @@ export default function Home() {
     ? (races.find((r) => r.name === race)?.bonusSkills.map((s) => s.name) ?? [])
     : [];
 
-  // Load saved characters list
-  const loadCharacterList = useCallback(async () => {
-    if (!session?.user) return;
-    setLoadingChars(true);
-    try {
-      const res = await fetch("/api/characters");
-      if (res.ok) setSavedChars(await res.json());
-    } catch { /* ignore */ }
-    setLoadingChars(false);
-  }, [session?.user]);
+  // Refresh key to trigger character list reload
+  const [charListKey, setCharListKey] = useState(0);
+  const refreshCharList = () => setCharListKey((k) => k + 1);
 
+  // Load saved characters list
   useEffect(() => {
-    if (status === "authenticated") loadCharacterList();
-  }, [status, loadCharacterList]);
+    if (status !== "authenticated" || !session?.user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/characters");
+        if (res.ok && !cancelled) setSavedChars(await res.json());
+      } catch { /* ignore */ }
+      if (!cancelled) setLoadingChars(false);
+    })();
+    return () => { cancelled = true; };
+  }, [status, session?.user, charListKey]);
 
   // Load sign-out eligibility: find registrations where the character was checked out
   useEffect(() => {
@@ -204,14 +206,14 @@ export default function Home() {
   const deleteCharacter = async (id: string) => {
     if (!confirm("Delete this character permanently?")) return;
     await fetch(`/api/characters?id=${id}`, { method: "DELETE" });
-    loadCharacterList();
+    refreshCharList();
   };
 
   const submitForReview = async (id: string) => {
     if (!confirm("Submit this character for staff review? You won't be able to edit it until review is complete.")) return;
     const res = await fetch(`/api/characters/${id}/submit`, { method: "POST" });
     if (res.ok) {
-      loadCharacterList();
+      refreshCharList();
     }
   };
 
@@ -279,7 +281,7 @@ export default function Home() {
         const result = await res.json();
         setEditingId(result.id);
         setSaveMsg("Character saved!");
-        loadCharacterList();
+        refreshCharList();
       } else {
         const errData = await res.json().catch(() => null);
         setSaveMsg(errData?.error ?? "Failed to save");
