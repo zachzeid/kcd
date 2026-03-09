@@ -62,20 +62,6 @@ export default function Home() {
   // Sign-out eligibility per character
   const [signOutMap, setSignOutMap] = useState<Record<string, SignOutEligibility>>({});
 
-  // Level up modal state
-  const [levelUpModal, setLevelUpModal] = useState<string | null>(null);
-  const [levelUpData, setLevelUpData] = useState<{
-    currentLevel: number;
-    eligibleLevel: number;
-    totalXP: number;
-    eventXP: number;
-    skillPointsToGain: number;
-    canLevelUp: boolean;
-    xpNeededForNextLevel: number;
-    eventHistory: Array<{ eventName: string; eventDate: string; xpEarned: number }>;
-  } | null>(null);
-  const [levelingUp, setLevelingUp] = useState(false);
-
   // Character state
   const [name, setName] = useState("");
   const [history, setHistory] = useState("");
@@ -239,35 +225,6 @@ export default function Home() {
     }
   };
 
-  const openLevelUpModal = async (charId: string) => {
-    setLevelUpModal(charId);
-    setLevelUpData(null);
-    const res = await fetch(`/api/characters/${charId}/levelup`);
-    if (res.ok) {
-      const data = await res.json();
-      setLevelUpData(data);
-    }
-  };
-
-  const handleLevelUp = async () => {
-    if (!levelUpModal || !levelUpData) return;
-    setLevelingUp(true);
-    const res = await fetch(`/api/characters/${levelUpModal}/levelup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetLevel: levelUpData.eligibleLevel }),
-    });
-    if (res.ok) {
-      const result = await res.json();
-      setLevelUpModal(null);
-      setLevelUpData(null);
-      router.push(`/characters/${levelUpModal}/skills?levelUp=true&gained=${result.skillPointsGained}&newLevel=${result.newLevel}`);
-    } else {
-      const err = await res.json();
-      alert(err.error || "Failed to level up");
-    }
-    setLevelingUp(false);
-  };
 
   const character: Character = {
     name,
@@ -479,7 +436,6 @@ export default function Home() {
                   const statusInfo = CHARACTER_STATUSES[c.status] ?? CHARACTER_STATUSES.draft;
                   const editable = userCanEditOwn && canPlayerEdit(c.status);
                   const submittable = userCanEditOwn && canSubmitForReview(c.status);
-                  const canLevel = ["approved", "checked_out"].includes(c.status);
                   const staffLogs = c.auditLogs?.filter((l) => l.actorRole !== "user") ?? [];
                   return (
                     <div
@@ -525,14 +481,6 @@ export default function Home() {
                             >
                               View
                             </Link>
-                          )}
-                          {canLevel && (
-                            <button
-                              onClick={() => openLevelUpModal(c.id)}
-                              className="px-3 py-1.5 rounded text-xs bg-purple-700 text-white hover:bg-purple-600"
-                            >
-                              Level Up
-                            </button>
                           )}
                           {signOutMap[c.id] && (
                             <Link
@@ -708,88 +656,6 @@ export default function Home() {
         )}
       </main>
 
-      {/* Level Up Modal */}
-      {levelUpModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-lg w-full">
-            <h3 className="text-lg font-bold text-white mb-4">Level Up Character</h3>
-            
-            {!levelUpData ? (
-              <div className="text-gray-400 text-center py-8">Loading...</div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-800 p-3 rounded">
-                    <div className="text-gray-400 text-xs">Current Level</div>
-                    <div className="text-white text-2xl font-bold">{levelUpData.currentLevel}</div>
-                  </div>
-                  <div className="bg-gray-800 p-3 rounded">
-                    <div className="text-gray-400 text-xs">Total XP</div>
-                    <div className="text-amber-400 text-2xl font-bold">{levelUpData.totalXP}</div>
-                  </div>
-                </div>
-
-                {levelUpData.canLevelUp ? (
-                  <>
-                    <div className="bg-green-900/20 border border-green-800 rounded p-4">
-                      <div className="text-green-300 font-bold mb-2">Ready to Level Up!</div>
-                      <div className="text-gray-300 text-sm">
-                        You can advance to <span className="font-bold text-white">Level {levelUpData.eligibleLevel}</span>
-                      </div>
-                      <div className="text-amber-400 text-sm mt-1">
-                        +{levelUpData.skillPointsToGain} skill points to spend
-                      </div>
-                    </div>
-
-                    {levelUpData.eventHistory && levelUpData.eventHistory.length > 0 && (
-                      <div>
-                        <div className="text-gray-400 text-sm font-medium mb-2">XP from Events:</div>
-                        <div className="space-y-1 max-h-32 overflow-y-auto">
-                          {levelUpData.eventHistory.map((event, idx) => (
-                            <div key={idx} className="flex justify-between text-xs bg-gray-800 px-2 py-1 rounded">
-                              <span className="text-gray-300">{event.eventName}</span>
-                              <span className="text-amber-400">{event.xpEarned} XP</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="bg-gray-800/50 border border-gray-700 rounded p-4">
-                    <div className="text-gray-400 text-sm text-center">
-                      Not enough XP to level up yet.
-                      {levelUpData.xpNeededForNextLevel > 0 && (
-                        <div className="mt-2">
-                          Need <span className="text-amber-400 font-bold">{levelUpData.xpNeededForNextLevel} more XP</span> for level {levelUpData.currentLevel + 1}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-3 justify-end pt-2">
-                  <button
-                    onClick={() => setLevelUpModal(null)}
-                    className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600"
-                  >
-                    Close
-                  </button>
-                  {levelUpData.canLevelUp && (
-                    <button
-                      onClick={handleLevelUp}
-                      disabled={levelingUp}
-                      className="px-4 py-2 rounded bg-purple-700 text-white hover:bg-purple-600 disabled:opacity-50"
-                    >
-                      {levelingUp ? "Leveling Up..." : `Level Up to ${levelUpData.eligibleLevel}`}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
