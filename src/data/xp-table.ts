@@ -1,4 +1,5 @@
-// XP required for each level (index 0 = level 1)
+// XP earned (above starting 140 SP) required to reach each level.
+// Index 0 = level 1, index 1 = level 2, etc.
 export const xpTable: number[] = [
   0,    // Level 1
   40,   // Level 2
@@ -31,3 +32,23 @@ export const xpTable: number[] = [
   8680, // Level 29
   9280, // Level 30
 ];
+
+export const STARTING_SKILL_POINTS = 140;
+
+/** Derive level from total earned XP (not including starting 140 SP). */
+export function levelFromXP(totalXP: number): number {
+  let level = 1;
+  for (let i = 1; i < xpTable.length; i++) {
+    if (totalXP >= xpTable[i]) {
+      level = i + 1;
+    } else {
+      break;
+    }
+  }
+  return level;
+}
+
+/** Calculate total skill points: starting 140 + all earned XP. */
+export function totalSkillPoints(totalXP: number): number {
+  return STARTING_SKILL_POINTS + totalXP;
+}

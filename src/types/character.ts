@@ -75,6 +75,7 @@ export interface Character {
   characterClass: CharacterClass;
   level: number;
   xp: number;
+  totalXP?: number;
   bodyPoints: number;
   skillPoints: number;
   skillPointsSpent: number;

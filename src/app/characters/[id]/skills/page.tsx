@@ -202,7 +202,7 @@ export default function SkillsPage({ params }: { params: Promise<{ id: string }>
         {/* Available points info */}
         <div className="mb-4 p-3 bg-gray-900 rounded-lg border border-gray-800 flex items-center justify-between">
           <div className="text-gray-400 text-sm">
-            Available Skill Points from Level-Up
+            Available Skill Points
           </div>
           <div className={`text-xl font-bold ${pointsRemaining < 0 ? "text-red-500" : pointsRemaining === 0 ? "text-gray-500" : "text-amber-400"}`}>
             {pointsRemaining} remaining

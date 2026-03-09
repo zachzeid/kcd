@@ -22,6 +22,7 @@ interface EventData {
     paymentStatus: string;
     arfSignedAt: string | null;
   } | null;
+  mySignOutStatus: string | null; // null = no sign-out, "pending" | "processed" | "rejected"
 }
 
 const TICKET_LABELS: Record<string, string> = {
@@ -249,13 +250,26 @@ function EventCard({
           </button>
         )}
 
-        {/* Sign Out button for past/completed events */}
+        {/* Sign Out / View Sign-Out button for past/completed events */}
         {canSignOut && (
           <Link
             href={`/signout/${event.id}`}
-            className="px-4 py-2 rounded-lg bg-indigo-700 text-white font-medium hover:bg-indigo-600 text-sm"
+            className={`px-4 py-2 rounded-lg font-medium text-sm ${
+              event.mySignOutStatus
+                ? "bg-gray-700 text-white hover:bg-gray-600"
+                : "bg-indigo-700 text-white hover:bg-indigo-600"
+            }`}
           >
-            Sign Out
+            {event.mySignOutStatus ? "View Sign-Out" : "Sign Out"}
+            {event.mySignOutStatus === "processed" && (
+              <span className="ml-1.5 text-green-400 text-xs">(Processed)</span>
+            )}
+            {event.mySignOutStatus === "pending" && (
+              <span className="ml-1.5 text-yellow-400 text-xs">(Pending)</span>
+            )}
+            {event.mySignOutStatus === "rejected" && (
+              <span className="ml-1.5 text-red-400 text-xs">(Rejected)</span>
+            )}
           </Link>
         )}
 

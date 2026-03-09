@@ -35,25 +35,44 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  const tags = rawTags.map((tag) => ({
-    id: tag.id,
-    tagCode: tag.tagCode,
-    itemType: tag.itemType,
-    itemName: tag.itemName,
-    itemDescription: tag.itemDescription,
-    craftingSkill: tag.craftingSkill,
-    craftingLevel: tag.craftingLevel,
-    quantity: tag.quantity,
-    primaryMaterial: tag.primaryMaterial,
-    secondaryMaterial: tag.secondaryMaterial,
-    masterCrafted: tag.masterCrafted,
-    status: tag.status,
-    characterId: tag.character.id,
-    characterName: tag.character.name,
-    playerName: tag.user.name,
-    tagUrl: tag.tagCode ? getTagUrl(tag.tagCode) : null,
-    createdAt: tag.createdAt.toISOString(),
-  }));
+  const tags = rawTags.map((tag) => {
+    // Determine source: econ_created, gm_encounter, or player_signout
+    let source = "player_signout";
+    let extraParsed: Record<string, unknown> | null = null;
+    if (tag.extraDetails) {
+      try {
+        extraParsed = JSON.parse(tag.extraDetails);
+      } catch { /* ignore */ }
+    }
+    if (extraParsed?.source === "encounter") {
+      source = "gm_encounter";
+    } else if (tag.processedBy && tag.status === "approved" && !tag.extraDetails) {
+      // Econ-created tags are immediately approved with processedBy set and no extraDetails
+      source = "econ_created";
+    }
+
+    return {
+      id: tag.id,
+      tagCode: tag.tagCode,
+      itemType: tag.itemType,
+      itemName: tag.itemName,
+      itemDescription: tag.itemDescription,
+      craftingSkill: tag.craftingSkill,
+      craftingLevel: tag.craftingLevel,
+      quantity: tag.quantity,
+      primaryMaterial: tag.primaryMaterial,
+      secondaryMaterial: tag.secondaryMaterial,
+      masterCrafted: tag.masterCrafted,
+      status: tag.status,
+      source,
+      characterId: tag.character.id,
+      characterName: tag.character.name,
+      playerName: tag.user.name,
+      tagUrl: tag.tagCode ? getTagUrl(tag.tagCode) : null,
+      printedAt: tag.printedAt?.toISOString() ?? null,
+      createdAt: tag.createdAt.toISOString(),
+    };
+  });
 
   return NextResponse.json({ tags });
 }

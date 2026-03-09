@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { STARTING_SKILL_POINTS } from "@/data/xp-table";
 
 // GET: Get character's current skills and available skill points
 export async function GET(
@@ -24,19 +25,27 @@ export async function GET(
 
   const charData = JSON.parse(character.data);
 
+  // Total SP = starting 140 + all earned XP
+  const totalXP = charData.totalXP || 0;
+  const totalSP = STARTING_SKILL_POINTS + totalXP;
+  const skillPointsSpent = charData.skillPointsSpent || 0;
+  const skillPointsAvailable = totalSP - skillPointsSpent;
+
   return NextResponse.json({
     characterClass: charData.characterClass,
     race: charData.race,
     level: charData.level || 1,
     skills: charData.skills || [],
-    skillPointsAvailable: charData.skillPointsAvailable || 0,
-    skillPointsSpent: charData.skillPointsSpent || 0,
+    skillPointsAvailable,
+    skillPointsSpent,
+    totalSkillPoints: totalSP,
+    totalXP,
     name: charData.name,
     status: character.status,
   });
 }
 
-// POST: Save updated skills after level-up skill purchasing
+// POST: Save updated skills after purchasing with XP/SP
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -70,17 +79,12 @@ export async function POST(
   }
 
   const charData = JSON.parse(character.data);
-  const available = charData.skillPointsAvailable || 0;
 
-  // Calculate how many new points were spent
-  const previousSpent = charData.skillPointsSpent || 0;
-  const newPointsUsed = skillPointsSpent - previousSpent;
+  // Total SP = starting 140 + all earned XP
+  const totalXP = charData.totalXP || 0;
+  const totalSP = STARTING_SKILL_POINTS + totalXP;
 
-  if (newPointsUsed < 0) {
-    return NextResponse.json({ error: "Invalid skill point calculation" }, { status: 400 });
-  }
-
-  if (newPointsUsed > available) {
+  if (skillPointsSpent > totalSP) {
     return NextResponse.json({ error: "Not enough skill points available" }, { status: 400 });
   }
 
@@ -88,7 +92,6 @@ export async function POST(
     ...charData,
     skills,
     skillPointsSpent,
-    skillPointsAvailable: available - newPointsUsed,
   };
 
   await prisma.character.update({
@@ -98,7 +101,8 @@ export async function POST(
 
   return NextResponse.json({
     success: true,
-    skillPointsAvailable: updatedCharData.skillPointsAvailable,
-    skillPointsSpent: updatedCharData.skillPointsSpent,
+    skillPointsAvailable: totalSP - skillPointsSpent,
+    skillPointsSpent,
+    totalSkillPoints: totalSP,
   });
 }

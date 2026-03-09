@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessCBD } from "@/lib/roles";
 import { logAudit } from "@/lib/audit";
 import { calculateSignOutXP, craftLevelToTier, PROFESSION_RATES, startingBankData } from "@/lib/economy";
+import { levelFromXP, STARTING_SKILL_POINTS } from "@/data/xp-table";
 
 // POST: Process or reject a sign-out
 export async function POST(
@@ -99,6 +100,43 @@ export async function POST(
       },
     }),
   ]);
+
+  // Auto-update character data: add XP to SP pool, recalculate level
+  {
+    const character = await prisma.character.findUnique({ where: { id: signOut.characterId } });
+    if (character) {
+      // Sum all XP earned from processed registrations
+      const allRegs = await prisma.eventRegistration.findMany({
+        where: { userId: signOut.userId, xpEarned: { gt: 0 } },
+        select: { xpEarned: true },
+      });
+      const newTotalXP = allRegs.reduce((sum, r) => sum + r.xpEarned, 0);
+      const newLevel = levelFromXP(newTotalXP);
+      const charData = JSON.parse(character.data as string);
+      const previousLevel = charData.level || 1;
+
+      charData.totalXP = newTotalXP;
+      charData.level = newLevel;
+      // Total SP = starting 140 + all earned XP. skillPoints tracks the total pool.
+      charData.skillPoints = STARTING_SKILL_POINTS + newTotalXP;
+
+      await prisma.character.update({
+        where: { id: signOut.characterId },
+        data: { data: JSON.stringify(charData) },
+      });
+
+      if (newLevel > previousLevel) {
+        await logAudit({
+          characterId: signOut.characterId,
+          actorId: "system",
+          actorName: "System",
+          actorRole: "system",
+          action: "level_up",
+          details: { previousLevel, newLevel, totalXP: newTotalXP },
+        });
+      }
+    }
+  }
 
   // Auto-deposit coin earnings if crafting for coin
   let coinEarnings = 0;

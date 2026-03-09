@@ -21,6 +21,7 @@ interface CharacterData {
   history: string;
   skillPointsSpent: number;
   silverSpent: number;
+  totalXP?: number;
   skills: { skillName: string; specialization?: string; purchaseCount: number; totalCost: number; acquiredAt?: string; reason?: string }[];
   equipment: { itemName: string; quantity: number; totalCost: number; acquiredAt?: string; reason?: string }[];
 }
@@ -284,7 +285,7 @@ export default function CharacterSummaryPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
             label="Skill Points"
-            value={`${d.skillPointsSpent} / ${140 + (d.level - 1) * 20}`}
+            value={`${d.skillPointsSpent} / ${140 + (history?.totalXP ?? d.totalXP ?? 0)}`}
           />
           {history && (
             <>

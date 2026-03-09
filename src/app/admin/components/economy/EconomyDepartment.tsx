@@ -16,12 +16,28 @@ interface Tag {
   secondaryMaterial: string | null;
   masterCrafted: boolean;
   status: string;
+  source: string; // econ_created, gm_encounter, player_signout
   characterId: string;
   characterName: string;
   playerName: string;
   tagUrl: string | null;
+  printedAt: string | null;
   createdAt: string;
 }
+
+type SourceFilter = "all" | "player_signout" | "gm_encounter" | "econ_created";
+
+const SOURCE_LABELS: Record<string, string> = {
+  player_signout: "Player",
+  gm_encounter: "GM",
+  econ_created: "Econ",
+};
+
+const SOURCE_COLORS: Record<string, string> = {
+  player_signout: "bg-blue-900 text-blue-300",
+  gm_encounter: "bg-purple-900 text-purple-300",
+  econ_created: "bg-green-900 text-green-300",
+};
 
 interface CharacterOption {
   id: string;
@@ -87,6 +103,7 @@ export default function EconomyDepartment() {
   const [txnSaving, setTxnSaving] = useState(false);
 
   // Tag creation form
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [showCreateTag, setShowCreateTag] = useState(false);
   const [characters, setCharacters] = useState<CharacterOption[]>([]);
   const [charSearch, setCharSearch] = useState("");
@@ -399,8 +416,35 @@ export default function EconomyDepartment() {
         <div className="text-gray-500 text-center py-8">Loading...</div>
       ) : subTab === "tags" ? (
         <div className="space-y-4">
-          {/* Create tag button */}
-          <div className="flex justify-end">
+          {/* Source filter tabs + Create tag button */}
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1">
+              {(
+                [
+                  ["all", "All"],
+                  ["player_signout", "Player Requests"],
+                  ["gm_encounter", "GM Requests"],
+                  ["econ_created", "Econ Created"],
+                ] as [SourceFilter, string][]
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setSourceFilter(key)}
+                  className={`px-2.5 py-1 rounded text-xs font-medium ${
+                    sourceFilter === key
+                      ? "bg-amber-600 text-white"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                  }`}
+                >
+                  {label}
+                  {key !== "all" && (
+                    <span className="ml-1 opacity-70">
+                      ({tags.filter((t) => t.source === key).length})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => setShowCreateTag(!showCreateTag)}
               className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-500"
@@ -699,7 +743,11 @@ export default function EconomyDepartment() {
           )}
 
           {/* Tags list */}
-          {tags.length === 0 ? (
+          {(() => {
+            const filteredTags = sourceFilter === "all"
+              ? tags
+              : tags.filter((t) => t.source === sourceFilter);
+            return filteredTags.length === 0 ? (
             <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
               <p className="text-gray-500">No tags created yet.</p>
               <p className="text-gray-600 text-xs mt-2">
@@ -712,6 +760,7 @@ export default function EconomyDepartment() {
                 <thead>
                   <tr className="text-gray-500 border-b border-gray-700">
                     <th className="text-left py-2 px-3">Tag #</th>
+                    <th className="text-left py-2 px-3">Source</th>
                     <th className="text-left py-2 px-3">Type</th>
                     <th className="text-left py-2 px-3">Name</th>
                     <th className="text-left py-2 px-3">Character</th>
@@ -721,7 +770,7 @@ export default function EconomyDepartment() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tags.map((tag) => (
+                  {filteredTags.map((tag) => (
                     <tr key={tag.id} className="border-b border-gray-800">
                       <td className="py-2 px-3 text-amber-400 font-mono text-xs">
                         {tag.tagCode ? (
@@ -736,6 +785,15 @@ export default function EconomyDepartment() {
                         ) : (
                           <span className="text-gray-600">—</span>
                         )}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            SOURCE_COLORS[tag.source] ?? "bg-gray-800 text-gray-400"
+                          }`}
+                        >
+                          {SOURCE_LABELS[tag.source] ?? tag.source}
+                        </span>
                       </td>
                       <td className="py-2 px-3 text-gray-400 text-xs">{typeLabel(tag.itemType)}</td>
                       <td className="py-2 px-3 text-white">
@@ -800,7 +858,8 @@ export default function EconomyDepartment() {
                 </tbody>
               </table>
             </div>
-          )}
+          );
+          })()}
         </div>
       ) : subTab === "banks" ? (
         <BanksView

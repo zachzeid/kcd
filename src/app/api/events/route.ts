@@ -22,13 +22,20 @@ export async function GET() {
     include: { _count: { select: { registrations: true } } },
   });
 
-  // Also get current user's registrations
-  const myRegistrations = await prisma.eventRegistration.findMany({
-    where: { userId: session.user.id },
-    select: { eventId: true, ticketType: true, paymentStatus: true, arfSignedAt: true },
-  });
+  // Also get current user's registrations and sign-out statuses
+  const [myRegistrations, mySignOuts] = await Promise.all([
+    prisma.eventRegistration.findMany({
+      where: { userId: session.user.id },
+      select: { eventId: true, ticketType: true, paymentStatus: true, arfSignedAt: true },
+    }),
+    prisma.characterSignOut.findMany({
+      where: { userId: session.user.id },
+      select: { eventId: true, status: true },
+    }),
+  ]);
 
   const regMap = Object.fromEntries(myRegistrations.map((r) => [r.eventId, r]));
+  const signOutMap = Object.fromEntries(mySignOuts.map((s) => [s.eventId, s.status]));
 
   return NextResponse.json(
     events.map((e) => ({
@@ -44,6 +51,7 @@ export async function GET() {
       status: e.status,
       registrationCount: e._count.registrations,
       myRegistration: regMap[e.id] || null,
+      mySignOutStatus: signOutMap[e.id] || null,
     }))
   );
 }
