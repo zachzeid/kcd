@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStaff } from "@/lib/roles";
+import { logAudit } from "@/lib/audit";
 
 // GET: Fetch existing sign-out for a character + event
 export async function GET(
@@ -165,6 +166,20 @@ export async function POST(
       registrationId: registration.id,
       ...signOutData,
     },
+  });
+
+  const actor = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { name: true, role: true },
+  });
+
+  await logAudit({
+    characterId,
+    actorId: session.user.id,
+    actorName: actor?.name ?? "Unknown",
+    actorRole: actor?.role ?? "user",
+    action: "signout_submitted",
+    details: { eventId },
   });
 
   return NextResponse.json(signOut);

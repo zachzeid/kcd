@@ -9,7 +9,12 @@ export type AuditAction =
   | "status_change"
   | "level_up"
   | "reactivated"
-  | "deleted";
+  | "deleted"
+  | "registered"
+  | "checked_in"
+  | "checked_out"
+  | "signout_submitted"
+  | "signout_processed";
 
 interface AuditEntry {
   characterId: string;

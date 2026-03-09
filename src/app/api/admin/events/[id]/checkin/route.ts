@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStaff } from "@/lib/roles";
+import { logAudit } from "@/lib/audit";
 
 // POST: Check in/out a player for an event
 export async function POST(
@@ -76,6 +77,15 @@ export async function POST(
         where: { id: characterId },
         data: { status: "checked_in" },
       });
+
+      await logAudit({
+        characterId,
+        actorId: staff.id,
+        actorName: staff.name,
+        actorRole: staff.role,
+        action: "checked_in",
+        details: { eventId, eventName: registration.eventId },
+      });
     }
 
     await prisma.eventRegistration.update({
@@ -86,8 +96,8 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       action: "checkin",
       message: `${registration.user.name} checked in successfully`,
     });
@@ -107,6 +117,15 @@ export async function POST(
         await prisma.character.update({
           where: { id: charId },
           data: { status: "checked_out" },
+        });
+
+        await logAudit({
+          characterId: charId,
+          actorId: staff.id,
+          actorName: staff.name,
+          actorRole: staff.role,
+          action: "checked_out",
+          details: { eventId },
         });
       }
     }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessCBD } from "@/lib/roles";
+import { logAudit } from "@/lib/audit";
 import { calculateSignOutXP, craftLevelToTier, PROFESSION_RATES, startingBankData } from "@/lib/economy";
 
 // POST: Process or reject a sign-out
@@ -51,6 +52,15 @@ export async function POST(
         processedAt: new Date(),
         processNotes: notes || null,
       },
+    });
+
+    await logAudit({
+      characterId: signOut.characterId,
+      actorId: session.user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      action: "signout_processed",
+      details: { result: "rejected", eventId: signOut.eventId, notes: notes || null },
     });
 
     return NextResponse.json(updated);
@@ -154,6 +164,15 @@ export async function POST(
       // If parsing fails, skip coin earning — not critical
     }
   }
+
+  await logAudit({
+    characterId: signOut.characterId,
+    actorId: session.user.id,
+    actorName: user.name,
+    actorRole: user.role,
+    action: "signout_processed",
+    details: { result: "processed", eventId: signOut.eventId, xpAwarded, coinEarnings: coinEarnings || 0 },
+  });
 
   return NextResponse.json({ ...updatedSignOut, xpAwarded, coinEarnings });
 }

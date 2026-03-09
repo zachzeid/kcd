@@ -455,9 +455,15 @@ export default function Home() {
                                     log.action === "approved" ? "text-green-400" :
                                     log.action === "rejected" ? "text-red-400" :
                                     log.action === "submitted" ? "text-blue-400" :
+                                    log.action === "checked_in" ? "text-blue-300" :
+                                    log.action === "checked_out" ? "text-indigo-300" :
+                                    log.action === "signout_submitted" ? "text-purple-300" :
+                                    log.action === "signout_processed" ? "text-green-300" :
+                                    log.action === "reactivated" ? "text-orange-300" :
+                                    log.action === "level_up" ? "text-yellow-300" :
                                     "text-gray-400"
                                   }>
-                                    {log.action}
+                                    {log.action.replace(/_/g, " ")}
                                   </span>
                                   {log.details && typeof log.details.notes === "string" && (
                                     <span className="ml-1 text-gray-500">— {log.details.notes}</span>
