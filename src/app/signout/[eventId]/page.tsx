@@ -210,7 +210,8 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             signOut.betweenEventDetails ? JSON.parse(signOut.betweenEventDetails) : {}
           );
           setSignOutStatus(signOut.status);
-          if (signOut.status !== "pending") {
+          const hoursSinceCreation = (Date.now() - new Date(signOut.createdAt).getTime()) / (1000 * 60 * 60);
+          if (signOut.status !== "pending" || hoursSinceCreation > 24) {
             setReadOnly(true);
           }
           // Fetch level-up data if sign-out was processed
@@ -402,7 +403,9 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
 
         {readOnly && (
           <div className="mb-6 bg-blue-900/30 border border-blue-700 rounded-lg p-4 text-blue-300 text-sm">
-            This sign-out has been {signOutStatus}. It can no longer be edited.
+            {signOutStatus !== "pending"
+              ? `This sign-out has been ${signOutStatus}. It can no longer be edited.`
+              : "This sign-out was submitted over 24 hours ago and can no longer be edited."}
           </div>
         )}
 
@@ -518,7 +521,8 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                               setBetweenEventAction((signOut.betweenEventAction) ?? "nothing");
                               setBetweenEventDetails(signOut.betweenEventDetails ? JSON.parse(signOut.betweenEventDetails) : {});
                               setSignOutStatus(signOut.status);
-                              if (signOut.status !== "pending") setReadOnly(true);
+                              const hrs = (Date.now() - new Date(signOut.createdAt).getTime()) / (1000 * 60 * 60);
+                              if (signOut.status !== "pending" || hrs > 24) setReadOnly(true);
                               // Fetch level-up data if processed
                               if (signOut.status === "processed") {
                                 fetch(`/api/characters/${selected.id}/levelup`)

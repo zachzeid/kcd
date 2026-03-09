@@ -133,6 +133,15 @@ export async function POST(
       );
     }
 
+    // 24-hour edit window from submission
+    const hoursSinceCreation = (Date.now() - new Date(existing.createdAt).getTime()) / (1000 * 60 * 60);
+    if (hoursSinceCreation > 24) {
+      return NextResponse.json(
+        { error: "Sign-out can only be edited within 24 hours of submission" },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.characterSignOut.update({
       where: { id: existing.id },
       data: signOutData,

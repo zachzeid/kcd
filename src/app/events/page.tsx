@@ -240,7 +240,7 @@ function EventCard({
           </button>
         )}
 
-        {!isRegistered && !showRegForm && (
+        {!isRegistered && !showRegForm && !isPast && event.status !== "completed" && (
           <button
             onClick={() => setShowRegForm(true)}
             className="px-4 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-500 text-sm"
