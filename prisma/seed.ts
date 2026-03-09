@@ -132,9 +132,9 @@ async function main() {
     name: "Kara Swiftblade",
     race: "Human",
     characterClass: "Warrior",
-    level: 2,
+    level: 1,
     freeLanguage: "Common",
-    history: "Born to a military family in the Capital, Kara earned her name fighting in border skirmishes before turning to tournament combat. She won the Winter's Tale 2026 tournament with incredible speed and technique.",
+    history: "Born to a military family in the Capital, Kara earned her name fighting in border skirmishes before turning to tournament combat.",
     skills: [
       { skillName: "One-Handed Weapons", purchaseCount: 1, totalCost: 30 },
       { skillName: "Longsword", purchaseCount: 1, totalCost: 18 },
@@ -144,7 +144,7 @@ async function main() {
       { skillName: "Paired Weapons", purchaseCount: 1, totalCost: 30 },
       { skillName: "Craft", specialization: "Weapon Smithing", purchaseCount: 2, totalCost: 32 },
     ],
-    skillPointsSpent: 170, // level 2 = 160 total
+    skillPointsSpent: 140, // level 1 = 140 total
     equipment: [
       { itemName: "Longsword", quantity: 1, totalCost: 10 },
       { itemName: "Shield", quantity: 1, totalCost: 5 },
@@ -172,18 +172,16 @@ async function main() {
     name: "Maeven",
     race: "Forest Elf",
     characterClass: "Rogue",
-    level: 3,
+    level: 1,
     freeLanguage: "Elvish",
     history: "A legendary ranger of the Greenwood whose arrows never miss. Played a crucial role in the Battle of Thornwood Pass, her arrows cutting down orc scouts before they could breach the lines. Quiet and deadly, she speaks little but acts decisively.",
     skills: [
       { skillName: "Ranged Weapons", purchaseCount: 1, totalCost: 60 },
       { skillName: "Bow", purchaseCount: 1, totalCost: 18 },
       { skillName: "Tracking", purchaseCount: 1, totalCost: 40 },
-      { skillName: "Wilderness Survival", purchaseCount: 1, totalCost: 20 },
-      { skillName: "Herbalism", purchaseCount: 3, totalCost: 48 },
       { skillName: "First Aid", purchaseCount: 1, totalCost: 20 },
     ],
-    skillPointsSpent: 206, // level 3 = 180 total... let's fix
+    skillPointsSpent: 138, // level 1 = 140 total
     equipment: [
       { itemName: "Longbow", quantity: 1, totalCost: 12 },
       { itemName: "Arrows (20)", quantity: 1, totalCost: 5 },
@@ -211,7 +209,7 @@ async function main() {
     name: "Elara",
     race: "Human",
     characterClass: "Cleric",
-    level: 2,
+    level: 1,
     freeLanguage: "Common",
     history: "A devoted healer who tended the wounded tirelessly during the Battle of Thornwood Pass. She has since taken up residence at the Temple of the Silver Moon, training young clerics and researching ancient healing rituals.",
     skills: [
@@ -293,7 +291,7 @@ async function main() {
     name: "Vaelith Stormweaver",
     race: "Common Elf",
     characterClass: "Mage",
-    level: 2,
+    level: 1,
     freeLanguage: "Elvish",
     history: "An elven scholar who left the Ivory Tower to study wild magic in the untamed lands. Recently spotted asking questions about the Lost Temple of Mysteries. Some whisper she commissioned a replica of the Crown of Stars — but for what purpose?",
     skills: [
@@ -400,43 +398,6 @@ async function main() {
     });
   }
 
-  // Level-up audit logs
-  await prisma.auditLog.create({
-    data: {
-      characterId: kara.id, actorId: p1.id, actorName: p1.name, actorRole: "user",
-      action: "level_up", details: JSON.stringify({ previousLevel: 1, newLevel: 2, skillPointsGained: 20 }),
-      createdAt: new Date("2026-02-20"),
-    },
-  });
-  await prisma.auditLog.create({
-    data: {
-      characterId: maeven.id, actorId: p2.id, actorName: p2.name, actorRole: "user",
-      action: "level_up", details: JSON.stringify({ previousLevel: 1, newLevel: 2, skillPointsGained: 20 }),
-      createdAt: new Date("2025-11-01"),
-    },
-  });
-  await prisma.auditLog.create({
-    data: {
-      characterId: maeven.id, actorId: p2.id, actorName: p2.name, actorRole: "user",
-      action: "level_up", details: JSON.stringify({ previousLevel: 2, newLevel: 3, skillPointsGained: 20 }),
-      createdAt: new Date("2026-02-20"),
-    },
-  });
-  await prisma.auditLog.create({
-    data: {
-      characterId: elara.id, actorId: p3.id, actorName: p3.name, actorRole: "user",
-      action: "level_up", details: JSON.stringify({ previousLevel: 1, newLevel: 2, skillPointsGained: 20 }),
-      createdAt: new Date("2025-11-01"),
-    },
-  });
-  await prisma.auditLog.create({
-    data: {
-      characterId: vaelith.id, actorId: p5.id, actorName: p5.name, actorRole: "user",
-      action: "level_up", details: JSON.stringify({ previousLevel: 1, newLevel: 2, skillPointsGained: 20 }),
-      createdAt: new Date("2025-11-01"),
-    },
-  });
-
   // Pending review audit log
   await prisma.auditLog.createMany({
     data: [
@@ -472,40 +433,36 @@ async function main() {
   // ─── EVENT 1 REGISTRATIONS: Autumn's End 2025 (completed) ────────────────────
   // Attended: Kara, Maeven, Elara, Vaelith (4 of 5 — Marcus wasn't created yet)
 
-  const reg1_kara = await prisma.eventRegistration.create({
+  await prisma.eventRegistration.create({
     data: {
       userId: p1.id, eventId: event1.id, characterId: kara.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2025,
       checkedInAt: new Date("2025-10-18T09:30:00"), checkedOutAt: new Date("2025-10-19T18:00:00"),
-      xpEarned: 12, npcMinutes: 0,
     },
   });
-  const reg1_maeven = await prisma.eventRegistration.create({
+  await prisma.eventRegistration.create({
     data: {
       userId: p2.id, eventId: event1.id, characterId: maeven.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2025,
       checkedInAt: new Date("2025-10-18T09:45:00"), checkedOutAt: new Date("2025-10-19T18:15:00"),
-      xpEarned: 16, npcMinutes: 90,
     },
   });
-  const reg1_elara = await prisma.eventRegistration.create({
+  await prisma.eventRegistration.create({
     data: {
       userId: p3.id, eventId: event1.id, characterId: elara.id,
       ticketType: "single_b", amountPaid: 4500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-05"), arfYear: 2025,
       checkedInAt: new Date("2025-10-18T10:15:00"), checkedOutAt: new Date("2025-10-19T17:00:00"),
-      xpEarned: 14, npcMinutes: 60,
     },
   });
-  const reg1_vaelith = await prisma.eventRegistration.create({
+  await prisma.eventRegistration.create({
     data: {
       userId: p5.id, eventId: event1.id, characterId: vaelith.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-10"), arfYear: 2025,
       checkedInAt: new Date("2025-10-18T10:00:00"), checkedOutAt: new Date("2025-10-19T18:00:00"),
-      xpEarned: 12, npcMinutes: 0,
     },
   });
 
@@ -514,31 +471,28 @@ async function main() {
   // ─── EVENT 2 REGISTRATIONS: Winter's Tale 2026 (completed) ────────────────────
   // Attended: Kara, Maeven, Marcus (3 of 5 — Elara was ill, Vaelith was traveling)
 
-  const reg2_kara = await prisma.eventRegistration.create({
+  await prisma.eventRegistration.create({
     data: {
       userId: p1.id, eventId: event2.id, characterId: kara.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2026,
       checkedInAt: new Date("2026-02-15T09:30:00"), checkedOutAt: new Date("2026-02-16T18:00:00"),
-      xpEarned: 16, npcMinutes: 60,
     },
   });
-  const reg2_maeven = await prisma.eventRegistration.create({
+  await prisma.eventRegistration.create({
     data: {
       userId: p2.id, eventId: event2.id, characterId: maeven.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2026,
       checkedInAt: new Date("2026-02-15T09:45:00"), checkedOutAt: new Date("2026-02-16T18:30:00"),
-      xpEarned: 20, npcMinutes: 120,
     },
   });
-  const reg2_marcus = await prisma.eventRegistration.create({
+  await prisma.eventRegistration.create({
     data: {
       userId: p4.id, eventId: event2.id, characterId: marcus.id,
       ticketType: "single_b", amountPaid: 4500, paymentStatus: "paid",
       arfSignedAt: new Date("2026-01-20"), arfYear: 2026,
       checkedInAt: new Date("2026-02-15T10:00:00"), checkedOutAt: new Date("2026-02-16T17:30:00"),
-      xpEarned: 14, npcMinutes: 30,
     },
   });
 
@@ -562,108 +516,8 @@ async function main() {
 
   console.log("✓ Created Winter's Tale registrations (5 players)");
 
-  // ─── SIGN-OUTS FOR COMPLETED EVENTS ──────────────────────────────────────────
-
-  // Event 1 sign-outs: all processed
-  await prisma.characterSignOut.create({
-    data: {
-      characterId: kara.id, userId: p1.id, eventId: event1.id, registrationId: reg1_kara.id,
-      status: "processed", npcMinutes: 0, staffMinutes: 0, lifeCreditsLost: 0,
-      eventRating: 8, roleplayQuality: "above_average",
-      enjoyedEncounters: "The barrow delve was fantastic! The undead costuming was top-notch.",
-      notableRoleplay: "The tavern negotiation scene with the orc emissary was electric.",
-      betweenEventAction: "adventuring",
-      betweenEventDetails: JSON.stringify({ description: "Scouting the old trade road for orc activity", companions: "Maeven", relevantSkills: "Tracking, First Aid" }),
-      processedBy: cbd.id, processedAt: new Date("2025-10-25"), xpAwarded: 12,
-    },
-  });
-  await prisma.characterSignOut.create({
-    data: {
-      characterId: maeven.id, userId: p2.id, eventId: event1.id, registrationId: reg1_maeven.id,
-      status: "processed", npcMinutes: 90, npcDetails: "Played orc scout patrol and forest spirits in module 3",
-      staffMinutes: 30, staffDetails: "Helped set up archery range",
-      lifeCreditsLost: 0,
-      eventRating: 9, roleplayQuality: "excellent",
-      enjoyedEncounters: "Module 3 forest encounter was perfectly paced. Great atmosphere.",
-      betweenEventAction: "crafting",
-      betweenEventDetails: JSON.stringify({ purpose: "Preparing healing salves for the winter", craftingSkills: "Herbalism", items: "Healing salves, antitoxin", location: "Greenwood camp" }),
-      processedBy: cbd.id, processedAt: new Date("2025-10-25"), xpAwarded: 16,
-    },
-  });
-  await prisma.characterSignOut.create({
-    data: {
-      characterId: elara.id, userId: p3.id, eventId: event1.id, registrationId: reg1_elara.id,
-      status: "processed", npcMinutes: 60, npcDetails: "Played healer NPC in module 2 field hospital scene",
-      staffMinutes: 0, lifeCreditsLost: 1,
-      skillsLearned: JSON.stringify([{ skillName: "Herbalism", count: 1, teacherName: "Evan Greentree", teacherCharacter: "Maeven" }]),
-      eventRating: 7, roleplayQuality: "above_average",
-      enjoyedEncounters: "The healing challenge in the field hospital was perfect for my character.",
-      dislikedEncounters: "Wished there were more non-combat modules for support characters.",
-      betweenEventAction: "researching",
-      betweenEventDetails: JSON.stringify({ topic: "Ancient healing rituals of the Silver Moon", location: "Temple of the Silver Moon archives", relevantSkills: "Herbalism, Earth-Water" }),
-      processedBy: cbd.id, processedAt: new Date("2025-10-25"), xpAwarded: 14,
-    },
-  });
-  await prisma.characterSignOut.create({
-    data: {
-      characterId: vaelith.id, userId: p5.id, eventId: event1.id, registrationId: reg1_vaelith.id,
-      status: "processed", npcMinutes: 0, staffMinutes: 0, lifeCreditsLost: 0,
-      eventRating: 8, roleplayQuality: "above_average",
-      enjoyedEncounters: "The magical anomaly investigation was brilliant. Loved the puzzle element.",
-      notableRoleplay: "The scholarly debate with the loremaster NPC was a highlight.",
-      betweenEventAction: "researching",
-      betweenEventDetails: JSON.stringify({ topic: "Location of the Lost Temple of Mysteries", location: "Various taverns and libraries", relevantSkills: "Appraisal, Fire-Air magic", leadsContacts: "A mysterious hooded figure seen at the Golden Griffin" }),
-      processedBy: cbd.id, processedAt: new Date("2025-10-25"), xpAwarded: 12,
-    },
-  });
-
-  console.log("✓ Created Autumn's End sign-outs (all processed)");
-
-  // Event 2 sign-outs: 2 pending, 1 processed
-  await prisma.characterSignOut.create({
-    data: {
-      characterId: kara.id, userId: p1.id, eventId: event2.id, registrationId: reg2_kara.id,
-      status: "pending", npcMinutes: 60, npcDetails: "Played town guard captain in the siege defense module",
-      staffMinutes: 0, lifeCreditsLost: 0,
-      skillsTaught: JSON.stringify([{ skillName: "Longsword", studentNames: "Marcus Thornwell" }]),
-      eventRating: 9, roleplayQuality: "excellent",
-      enjoyedEncounters: "The tournament was incredible. Loved the siege defense module too.",
-      notableRoleplay: "Training Marcus in swordplay between modules was a great character moment.",
-      atmosphereFeedback: "Fog machines at night made the undead encounters terrifying in the best way.",
-      betweenEventAction: "crafting",
-      betweenEventDetails: JSON.stringify({ purpose: "Repairing armor damaged in the siege", craftingSkills: "Weapon Smithing", items: "Repaired longsword, reinforced shield", location: "Capital smithy" }),
-    },
-  });
-  await prisma.characterSignOut.create({
-    data: {
-      characterId: maeven.id, userId: p2.id, eventId: event2.id, registrationId: reg2_maeven.id,
-      status: "processed", npcMinutes: 120, npcDetails: "Ran monster camp for modules 1 and 4, various undead and frost elementals",
-      staffMinutes: 45, staffDetails: "Helped with gate logistics and night patrol schedule",
-      lifeCreditsLost: 0,
-      skillsLearned: JSON.stringify([{ skillName: "Wilderness Survival", count: 1, teacherName: "Kara Whitfield", teacherCharacter: "Kara Swiftblade" }]),
-      eventRating: 10, roleplayQuality: "outstanding",
-      enjoyedEncounters: "Every combat encounter was well-paced. The Frostpeak Temple delve was epic.",
-      atmosphereFeedback: "Best event yet. The winter setting was immersive and beautiful.",
-      betweenEventAction: "adventuring",
-      betweenEventDetails: JSON.stringify({ description: "Tracking orc scouts into the Badlands", companions: "Solo", relevantSkills: "Tracking, Bow, Wilderness Survival" }),
-      processedBy: cbd.id, processedAt: new Date("2026-02-25"), xpAwarded: 20,
-    },
-  });
-  await prisma.characterSignOut.create({
-    data: {
-      characterId: marcus.id, userId: p4.id, eventId: event2.id, registrationId: reg2_marcus.id,
-      status: "pending", npcMinutes: 30, npcDetails: "Played a Knight of the Realm in module 3",
-      staffMinutes: 0, lifeCreditsLost: 0,
-      skillsLearned: JSON.stringify([{ skillName: "Longsword", count: 1, teacherName: "Kara Whitfield", teacherCharacter: "Kara Swiftblade" }]),
-      eventRating: 8, roleplayQuality: "above_average",
-      enjoyedEncounters: "The ritual to break the winter curse was amazing. So many people working together.",
-      notableRoleplay: "Swearing my oath at my father's memorial stone was deeply moving.",
-      betweenEventAction: "governing",
-      betweenEventDetails: JSON.stringify({ actions: "Organizing patrols along Thornwood Pass, commissioning repairs to the watchtower", affectedLocations: "Thornwood Pass, Northern Villages", resources: "Thornwood garrison, personal funds" }),
-    },
-  });
-
-  console.log("✓ Created Winter's Tale sign-outs (1 processed, 2 pending)");
+  // No sign-outs yet — clean slate for testing the sign-out flow
+  console.log("✓ No sign-outs created (clean slate for testing)");
 
   // ─── EVENT 3 REGISTRATIONS: Spring Awakening (active) ────────────────────────
   // Some players registered for the active event
@@ -793,24 +647,7 @@ async function main() {
   });
   console.log("✓ Created 8 lore characters");
 
-  // ─── PROFESSION EARNING: Maeven got herbalism earning from Event 1 ──────────
-  const maevenBank = await prisma.playerBank.findUnique({ where: { characterId: maeven.id } });
-  if (maevenBank) {
-    await prisma.bankTransaction.create({
-      data: {
-        bankId: maevenBank.id,
-        type: "profession_earning",
-        amount: 2400,
-        description: "Herbalism (apprentice, standard) profession earning",
-        processedBy: econ.id,
-      },
-    });
-    await prisma.playerBank.update({
-      where: { id: maevenBank.id },
-      data: { balance: 5000 + 2400 },
-    });
-  }
-  console.log("✓ Created profession earning transaction for Maeven");
+  console.log("✓ No profession earnings (clean slate)");
 
   // ─── DONE ────────────────────────────────────────────────────────────────────
   console.log("\n✅ Seeding complete!\n");
@@ -823,21 +660,21 @@ async function main() {
   console.log("  - econ@kanar.test      (Economy Marshal)");
   console.log("");
   console.log("  Players:");
-  console.log("  - kara@kanar.test      → Kara Swiftblade (Lvl 2 Human Warrior)");
-  console.log("  - maeven@kanar.test    → Maeven (Lvl 3 Forest Elf Rogue)");
-  console.log("  - elara@kanar.test     → Elara (Lvl 2 Human Cleric)");
+  console.log("  - kara@kanar.test      → Kara Swiftblade (Lvl 1 Human Warrior)");
+  console.log("  - maeven@kanar.test    → Maeven (Lvl 1 Forest Elf Rogue)");
+  console.log("  - elara@kanar.test     → Elara (Lvl 1 Human Cleric)");
   console.log("  - marcus@kanar.test    → Marcus of Thornwood (Lvl 1 Human Warrior)");
-  console.log("  - vael@kanar.test      → Vaelith Stormweaver (Lvl 2 Common Elf Mage)");
+  console.log("  - vael@kanar.test      → Vaelith Stormweaver (Lvl 1 Common Elf Mage)");
   console.log("");
   console.log("Events:");
-  console.log("  - Autumn's End 2025     (completed, 4 attendees, all sign-outs processed)");
-  console.log("  - Winter's Tale 2026    (completed, 3 attendees, 2 pending + 1 processed sign-out)");
+  console.log("  - Autumn's End 2025     (completed, 4 attended, no sign-outs)");
+  console.log("  - Winter's Tale 2026    (completed, 5 attended, no sign-outs)");
   console.log("  - Spring Awakening 2026 (active, 5 registered)");
   console.log("  - Midsummer 2026        (upcoming)");
   console.log("  - Harvest Moon 2026     (upcoming)");
   console.log("");
-  console.log("Characters: 5 approved, 1 draft, 1 pending review");
-  console.log("CBD Queue: 2 pending sign-outs from Winter's Tale");
+  console.log("Characters: 5 approved (all Lvl 1), 1 draft, 1 pending review");
+  console.log("Sign-outs: none (clean slate for testing)");
   console.log("Lore: 6 entries, 8 lore characters (5 assigned to players)");
 }
 
