@@ -205,9 +205,9 @@ export default function CharacterSummaryPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
             label="Skill Points"
-            value={`${d.skillPointsSpent} / 140`}
+            value={`${d.skillPointsSpent} / ${140 + (d.level - 1) * 20}`}
           />
-          <StatCard label="Silver Spent" value={`${d.silverSpent} / 50`} />
+          <StatCard label="Equipment Silver" value={`${d.silverSpent} / 50`} />
           {history && (
             <>
               <StatCard label="Total XP" value={String(history.totalXP)} />

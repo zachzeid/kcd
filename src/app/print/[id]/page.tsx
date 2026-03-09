@@ -126,8 +126,8 @@ export default function PrintPage() {
               value={raceInfo.bonusSkills.map((s) => `${s.name} x${s.count}`).join(", ")}
             />
           )}
-          <InfoRow label="Skill Points Used" value={`${character.skillPointsSpent} / 140`} />
-          <InfoRow label="Silver Spent" value={`${character.silverSpent} / 50`} />
+          <InfoRow label="Skill Points Used" value={`${character.skillPointsSpent} / ${140 + (character.level - 1) * 20}`} />
+          <InfoRow label="Equipment Silver" value={`${character.silverSpent} / 50`} />
           {raceInfo && (
             <InfoRow label="Costuming" value={raceInfo.costumingRequirements} />
           )}
