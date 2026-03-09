@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     where.itemType = itemType;
   }
 
-  const items = await prisma.itemSubmission.findMany({
+  const rawItems = await prisma.itemSubmission.findMany({
     where,
     include: {
       user: { select: { name: true } },
@@ -33,6 +33,28 @@ export async function GET(req: NextRequest) {
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const items = rawItems.map((item) => ({
+    id: item.id,
+    itemType: item.itemType,
+    itemName: item.itemName,
+    itemDescription: item.itemDescription,
+    craftingSkill: item.craftingSkill,
+    craftingLevel: item.craftingLevel,
+    quantity: item.quantity,
+    craftingTime: item.craftingTime,
+    primaryMaterial: item.primaryMaterial,
+    secondaryMaterial: item.secondaryMaterial,
+    masterCrafted: item.masterCrafted,
+    extraDetails: item.extraDetails,
+    status: item.status,
+    characterName: item.character.name,
+    playerName: item.user.name,
+    eventName: item.event?.name ?? null,
+    submittedAt: item.createdAt.toISOString(),
+    processedBy: item.processedBy,
+    processNotes: item.processNotes,
+  }));
 
   return NextResponse.json({ items });
 }

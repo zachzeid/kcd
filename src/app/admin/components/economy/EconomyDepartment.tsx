@@ -155,7 +155,7 @@ export default function EconomyDepartment() {
   return (
     <div>
       <div className="flex gap-2 mb-4">
-        {(["items", "banks", "earning"] as SubTab[]).map((tab) => (
+        {(["items", "banks"] as SubTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setSubTab(tab)}
