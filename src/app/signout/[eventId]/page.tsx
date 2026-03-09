@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -20,16 +20,26 @@ function extractTradeSkills(skills: { skillName: string; specialization?: string
 
 type ItemType = keyof typeof ITEM_TYPES;
 
+interface EventAttendee {
+  characterId: string;
+  characterName: string;
+  playerName: string;
+  playerId: string;
+  skills: string[];
+}
+
 interface SkillLearned {
   skillName: string;
   count: number;
-  teacherName: string;
-  teacherCharacter: string;
+  teacherName: string;       // character name (display)
+  teacherCharacter: string;  // player name (auto-filled)
+  teacherCharacterId?: string; // character ID for lookups
 }
 
 interface SkillTaught {
   skillName: string;
-  studentNames: string;
+  studentNames: string; // comma-separated character names
+  studentIds?: string[]; // character IDs
 }
 
 interface EventData {
@@ -51,6 +61,74 @@ interface RegistrationData {
   characterId: string | null;
   checkedInAt: string | null;
   checkedOutAt: string | null;
+}
+
+function StudentSearchDropdown({
+  attendees,
+  onSelect,
+}: {
+  attendees: EventAttendee[];
+  onSelect: (characterId: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = search
+    ? attendees.filter(
+        (a) =>
+          a.characterName.toLowerCase().includes(search.toLowerCase()) ||
+          a.playerName.toLowerCase().includes(search.toLowerCase())
+      )
+    : attendees;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="Search for a student..."
+        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none text-sm"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
+          {filtered.map((a) => (
+            <button
+              key={a.characterId}
+              type="button"
+              className="w-full text-left px-3 py-2 hover:bg-gray-700 text-sm text-white"
+              onClick={() => {
+                onSelect(a.characterId);
+                setSearch("");
+                setOpen(false);
+              }}
+            >
+              <span className="font-medium">{a.characterName}</span>
+              <span className="text-gray-400 ml-2">({a.playerName})</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && search && (
+        <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 text-gray-500 text-sm">
+          No matching attendees
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function SignOutPage({ params }: { params: Promise<{ eventId: string }> }) {
@@ -79,6 +157,9 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
   const [characterTradeSkills, setCharacterTradeSkills] = useState<
     { skillName: string; specialization?: string; purchaseCount: number }[]
   >([]);
+
+  // Event attendees for teacher/student selection
+  const [eventAttendees, setEventAttendees] = useState<EventAttendee[]>([]);
 
   // Level-up state
   const [levelUpData, setLevelUpData] = useState<{
@@ -139,6 +220,12 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
           return;
         }
         setEventName(event.name);
+
+        // Fetch event attendees for teacher/student dropdowns
+        fetch(`/api/events/${eventId}/attendees`)
+          .then((r) => r.ok ? r.json() : [])
+          .then((attendees: EventAttendee[]) => setEventAttendees(attendees))
+          .catch(() => {});
 
         // Fetch user's registration for this event
         const regRes = await fetch(`/api/events/${eventId}/register`);
@@ -297,7 +384,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
 
   // Skill learned helpers
   const addSkillLearned = () => {
-    setSkillsLearned([...skillsLearned, { skillName: "", count: 1, teacherName: "", teacherCharacter: "" }]);
+    setSkillsLearned([...skillsLearned, { skillName: "", count: 1, teacherName: "", teacherCharacter: "", teacherCharacterId: "" }]);
   };
   const removeSkillLearned = (idx: number) => {
     setSkillsLearned(skillsLearned.filter((_, i) => i !== idx));
@@ -305,16 +392,60 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
   const updateSkillLearned = (idx: number, field: keyof SkillLearned, value: string | number) => {
     setSkillsLearned(skillsLearned.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
   };
+  const selectTeacher = (idx: number, characterId: string) => {
+    const attendee = eventAttendees.find((a) => a.characterId === characterId);
+    if (attendee) {
+      setSkillsLearned(skillsLearned.map((s, i) =>
+        i === idx
+          ? { ...s, teacherName: attendee.characterName, teacherCharacter: attendee.playerName, teacherCharacterId: attendee.characterId }
+          : s
+      ));
+    } else {
+      setSkillsLearned(skillsLearned.map((s, i) =>
+        i === idx ? { ...s, teacherName: "", teacherCharacter: "", teacherCharacterId: "" } : s
+      ));
+    }
+  };
+  // Get skills the selected teacher can teach (guardrail)
+  const getTeacherSkills = (teacherCharacterId?: string) => {
+    if (!teacherCharacterId) return [];
+    const attendee = eventAttendees.find((a) => a.characterId === teacherCharacterId);
+    return attendee?.skills ?? [];
+  };
 
   // Skill taught helpers
   const addSkillTaught = () => {
-    setSkillsTaught([...skillsTaught, { skillName: "", studentNames: "" }]);
+    setSkillsTaught([...skillsTaught, { skillName: "", studentNames: "", studentIds: [] }]);
   };
   const removeSkillTaught = (idx: number) => {
     setSkillsTaught(skillsTaught.filter((_, i) => i !== idx));
   };
   const updateSkillTaught = (idx: number, field: keyof SkillTaught, value: string) => {
     setSkillsTaught(skillsTaught.map((s, i) => (i === idx ? { ...s, [field]: value } : s)));
+  };
+  const addStudentToSkillTaught = (idx: number, characterId: string) => {
+    const attendee = eventAttendees.find((a) => a.characterId === characterId);
+    if (!attendee) return;
+    setSkillsTaught(skillsTaught.map((s, i) => {
+      if (i !== idx) return s;
+      const currentIds = s.studentIds ?? [];
+      if (currentIds.includes(characterId)) return s; // already added
+      const newIds = [...currentIds, characterId];
+      const newNames = newIds
+        .map((id) => eventAttendees.find((a) => a.characterId === id)?.characterName ?? id)
+        .join(", ");
+      return { ...s, studentIds: newIds, studentNames: newNames };
+    }));
+  };
+  const removeStudentFromSkillTaught = (idx: number, characterId: string) => {
+    setSkillsTaught(skillsTaught.map((s, i) => {
+      if (i !== idx) return s;
+      const newIds = (s.studentIds ?? []).filter((id) => id !== characterId);
+      const newNames = newIds
+        .map((id) => eventAttendees.find((a) => a.characterId === id)?.characterName ?? id)
+        .join(", ");
+      return { ...s, studentIds: newIds, studentNames: newNames };
+    }));
   };
 
   // Between-event detail helper
@@ -651,68 +782,103 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             <p className="text-gray-500 text-sm">
               Record any skills you learned at this event from other players.
             </p>
-            {skillsLearned.map((skill, idx) => (
-              <div key={idx} className="grid grid-cols-[1fr_auto_1fr_1fr_auto] gap-2 items-end">
-                <div>
-                  <label className={labelClass}>Skill Name</label>
-                  <select
-                    value={skill.skillName}
-                    onChange={(e) => updateSkillLearned(idx, "skillName", e.target.value)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  >
-                    <option value="">Select skill...</option>
-                    {skillCategories.map((cat) => (
-                      <optgroup key={cat} label={cat}>
-                        {allSkills.filter((s) => s.category === cat).map((s) => (
-                          <option key={s.name} value={s.name}>{s.name}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+            {skillsLearned.map((skill, idx) => {
+              const teacherSkills = getTeacherSkills(skill.teacherCharacterId);
+              const hasTeacher = !!skill.teacherCharacterId;
+              return (
+                <div key={idx} className="space-y-2 border border-gray-700 rounded-lg p-3">
+                  <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                    <div>
+                      <label className={labelClass}>Teacher (Character)</label>
+                      <select
+                        value={skill.teacherCharacterId ?? ""}
+                        onChange={(e) => selectTeacher(idx, e.target.value)}
+                        disabled={readOnly}
+                        className={inputClass}
+                      >
+                        <option value="">Select teacher...</option>
+                        {eventAttendees
+                          .filter((a) => a.characterId !== characterId) // exclude self
+                          .map((a) => (
+                            <option key={a.characterId} value={a.characterId}>
+                              {a.characterName} ({a.playerName})
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>Player Name</label>
+                      <input
+                        type="text"
+                        value={skill.teacherCharacter}
+                        readOnly
+                        className={`${inputClass} opacity-70`}
+                        placeholder="Auto-filled from teacher"
+                      />
+                    </div>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => removeSkillLearned(idx)}
+                        className="px-3 py-2 rounded-lg bg-red-900/50 text-red-400 hover:bg-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                    <div>
+                      <label className={labelClass}>
+                        Skill Name
+                        {hasTeacher && teacherSkills.length === 0 && (
+                          <span className="text-yellow-500 ml-2 text-xs">(teacher has no skills on record)</span>
+                        )}
+                      </label>
+                      {hasTeacher && teacherSkills.length > 0 ? (
+                        <select
+                          value={skill.skillName}
+                          onChange={(e) => updateSkillLearned(idx, "skillName", e.target.value)}
+                          disabled={readOnly}
+                          className={inputClass}
+                        >
+                          <option value="">Select skill teacher knows...</option>
+                          {teacherSkills.map((name) => (
+                            <option key={name} value={name}>{name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select
+                          value={skill.skillName}
+                          onChange={(e) => updateSkillLearned(idx, "skillName", e.target.value)}
+                          disabled={readOnly}
+                          className={inputClass}
+                        >
+                          <option value="">Select skill...</option>
+                          {skillCategories.map((cat) => (
+                            <optgroup key={cat} label={cat}>
+                              {allSkills.filter((s) => s.category === cat).map((s) => (
+                                <option key={s.name} value={s.name}>{s.name}</option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                    <div className="w-20">
+                      <label className={labelClass}>Count</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={skill.count}
+                        onChange={(e) => updateSkillLearned(idx, "count", parseInt(e.target.value) || 1)}
+                        disabled={readOnly}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="w-20">
-                  <label className={labelClass}>Count</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={skill.count}
-                    onChange={(e) => updateSkillLearned(idx, "count", parseInt(e.target.value) || 1)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Teacher Name</label>
-                  <input
-                    type="text"
-                    value={skill.teacherName}
-                    onChange={(e) => updateSkillLearned(idx, "teacherName", e.target.value)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Teacher Character</label>
-                  <input
-                    type="text"
-                    value={skill.teacherCharacter}
-                    onChange={(e) => updateSkillLearned(idx, "teacherCharacter", e.target.value)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  />
-                </div>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => removeSkillLearned(idx)}
-                    className="px-3 py-2 rounded-lg bg-red-900/50 text-red-400 hover:bg-red-800 text-sm"
-                  >
-                    Remove
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
             {!readOnly && (
               <button
                 type="button"
@@ -731,40 +897,67 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
               Record any skills you taught to other players at this event.
             </p>
             {skillsTaught.map((skill, idx) => (
-              <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
-                <div>
-                  <label className={labelClass}>Skill Name</label>
-                  <select
-                    value={skill.skillName}
-                    onChange={(e) => updateSkillTaught(idx, "skillName", e.target.value)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  >
-                    <option value="">Select skill...</option>
-                    {characterSkills.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
+              <div key={idx} className="space-y-2 border border-gray-700 rounded-lg p-3">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className={labelClass}>Skill Name</label>
+                    <select
+                      value={skill.skillName}
+                      onChange={(e) => updateSkillTaught(idx, "skillName", e.target.value)}
+                      disabled={readOnly}
+                      className={inputClass}
+                    >
+                      <option value="">Select skill...</option>
+                      {characterSkills.map((name) => (
+                        <option key={name} value={name}>{name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => removeSkillTaught(idx)}
+                      className="px-3 py-2 rounded-lg bg-red-900/50 text-red-400 hover:bg-red-800 text-sm"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </div>
                 <div>
-                  <label className={labelClass}>Student Names (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={skill.studentNames}
-                    onChange={(e) => updateSkillTaught(idx, "studentNames", e.target.value)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  />
+                  <label className={labelClass}>Students</label>
+                  {/* Selected student pills */}
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {(skill.studentIds ?? []).map((sid) => {
+                      const student = eventAttendees.find((a) => a.characterId === sid);
+                      return (
+                        <span
+                          key={sid}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-900/50 text-amber-300 text-sm border border-amber-700"
+                        >
+                          {student?.characterName ?? sid}
+                          {!readOnly && (
+                            <button
+                              type="button"
+                              onClick={() => removeStudentFromSkillTaught(idx, sid)}
+                              className="text-amber-400 hover:text-red-400 ml-1 font-bold"
+                            >
+                              &times;
+                            </button>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {/* Student search dropdown */}
+                  {!readOnly && (
+                    <StudentSearchDropdown
+                      attendees={eventAttendees.filter(
+                        (a) => a.characterId !== characterId && !(skill.studentIds ?? []).includes(a.characterId)
+                      )}
+                      onSelect={(charId) => addStudentToSkillTaught(idx, charId)}
+                    />
+                  )}
                 </div>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => removeSkillTaught(idx)}
-                    className="px-3 py-2 rounded-lg bg-red-900/50 text-red-400 hover:bg-red-800 text-sm"
-                  >
-                    Remove
-                  </button>
-                )}
               </div>
             ))}
             {!readOnly && (
