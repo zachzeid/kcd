@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ITEM_TYPES, CRAFTING_SKILLS } from "@/lib/economy";
+import { ITEM_TYPES, CRAFTING_SKILLS, ALL_MATERIALS } from "@/lib/economy";
 
 interface Tag {
   id: string;
@@ -136,16 +136,14 @@ export default function EconomyDepartment() {
   useEffect(() => {
     if (showCreateTag || transferTag) {
       fetch("/api/admin/characters")
-        .then((r) => (r.ok ? r.json() : { characters: [] }))
-        .then((data) => {
-          const chars = (data.characters ?? []).map(
-            (c: { id: string; name: string; playerName: string; status: string }) => ({
-              id: c.id,
-              name: c.name,
-              playerName: c.playerName,
-              status: c.status,
-            })
-          );
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data: { id: string; name: string; userName: string; status: string }[]) => {
+          const chars = (Array.isArray(data) ? data : []).map((c) => ({
+            id: c.id,
+            name: c.name,
+            playerName: c.userName,
+            status: c.status,
+          }));
           setCharacters(chars);
         })
         .catch(() => setCharacters([]));
@@ -263,6 +261,46 @@ export default function EconomyDepartment() {
       alert(err instanceof Error ? err.message : "Remove failed");
     } finally {
       setRemoveSaving(false);
+    }
+  };
+
+  const approveTag = async (tag: Tag) => {
+    try {
+      const r = await fetch(`/api/admin/economy/items/${tag.id}/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        throw new Error(data.error || "Approve failed");
+      }
+      const refreshed = await fetch("/api/admin/economy/tags").then((r) =>
+        r.ok ? r.json() : { tags: [] }
+      );
+      setTags(refreshed.tags ?? []);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Approve failed");
+    }
+  };
+
+  const denyTag = async (tag: Tag) => {
+    try {
+      const r = await fetch(`/api/admin/economy/items/${tag.id}/process`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "deny" }),
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        throw new Error(data.error || "Deny failed");
+      }
+      const refreshed = await fetch("/api/admin/economy/tags").then((r) =>
+        r.ok ? r.json() : { tags: [] }
+      );
+      setTags(refreshed.tags ?? []);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Deny failed");
     }
   };
 
@@ -507,27 +545,33 @@ export default function EconomyDepartment() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Primary Material</label>
-                  <input
-                    type="text"
+                  <select
                     value={tagForm.primaryMaterial}
                     onChange={(e) =>
                       setTagForm((prev) => ({ ...prev, primaryMaterial: e.target.value }))
                     }
                     className={inputClass}
-                    placeholder="Optional"
-                  />
+                  >
+                    <option value="">None</option>
+                    {ALL_MATERIALS.map((mat) => (
+                      <option key={mat} value={mat}>{mat}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-gray-400 text-xs block mb-1">Secondary Material</label>
-                  <input
-                    type="text"
+                  <select
                     value={tagForm.secondaryMaterial}
                     onChange={(e) =>
                       setTagForm((prev) => ({ ...prev, secondaryMaterial: e.target.value }))
                     }
                     className={inputClass}
-                    placeholder="Optional"
-                  />
+                  >
+                    <option value="">None</option>
+                    {ALL_MATERIALS.map((mat) => (
+                      <option key={mat} value={mat}>{mat}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -718,6 +762,22 @@ export default function EconomyDepartment() {
                         </span>
                       </td>
                       <td className="py-2 px-3 text-right">
+                        {tag.status === "pending" && (
+                          <div className="flex gap-1 justify-end">
+                            <button
+                              onClick={() => approveTag(tag)}
+                              className="px-2 py-0.5 rounded text-xs bg-green-800 text-green-300 hover:bg-green-700"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => denyTag(tag)}
+                              className="px-2 py-0.5 rounded text-xs bg-red-800 text-red-300 hover:bg-red-700"
+                            >
+                              Deny
+                            </button>
+                          </div>
+                        )}
                         {tag.status === "approved" && (
                           <div className="flex gap-1 justify-end">
                             <button
