@@ -122,7 +122,20 @@ async function main() {
     },
   });
 
-  console.log("✓ Created 5 events (2 completed, 1 active, 2 upcoming)");
+  // Old event for inactive character registrations (>12 months ago)
+  const eventOld = await prisma.event.create({
+    data: {
+      name: "Midwinter Revel 2024",
+      date: new Date("2024-02-10T10:00:00"),
+      endDate: new Date("2024-02-11T18:00:00"),
+      location: "Kanar Campgrounds, Vermont",
+      description: "A long-past gathering where many characters last saw action.",
+      ticketPriceA: 3500, ticketPriceB: 4500, dayPassPrice: 2000,
+      status: "completed",
+    },
+  });
+
+  console.log("✓ Created 6 events (3 completed, 1 active, 2 upcoming)");
 
   // ─── CHARACTERS ──────────────────────────────────────────────────────────────
   // Mystic Quill characters: Kara Swiftblade, Maeven, Elara, Marcus, Vaelith
@@ -377,7 +390,141 @@ async function main() {
     },
   });
 
-  console.log("✓ Created 7 characters (5 approved, 1 draft, 1 pending review)");
+  // ─── INACTIVE CHARACTERS (one per player, last activity >12 months ago) ─────
+  // These characters were played in early 2024 and haven't attended an event since.
+
+  const inactiveKara = await prisma.character.create({
+    data: {
+      userId: p1.id, name: "Brynn the Bold",
+      data: JSON.stringify({
+        name: "Brynn the Bold", race: "Human", characterClass: "Warrior", level: 1,
+        freeLanguage: "Common",
+        history: "A boisterous sell-sword who joined every tavern brawl in the Capital before retiring to a quiet farm life.",
+        skills: [
+          { skillName: "One-Handed Weapons", purchaseCount: 1, totalCost: 30, acquiredAt: "2024-01-10", reason: "Character creation" },
+          { skillName: "Shields", purchaseCount: 1, totalCost: 20, acquiredAt: "2024-01-10", reason: "Character creation" },
+          { skillName: "First Aid", purchaseCount: 1, totalCost: 20, acquiredAt: "2024-01-10", reason: "Character creation" },
+        ],
+        skillPointsSpent: 70, equipment: [], silverSpent: 0,
+      }),
+      status: "approved", inactive: true,
+      createdAt: new Date("2024-01-10"),
+      submittedAt: new Date("2024-01-12"),
+      reviewedBy: cbd.id, reviewedAt: new Date("2024-01-14"),
+      reviewNotes: "Approved for play.",
+    },
+  });
+
+  const inactiveMaeven = await prisma.character.create({
+    data: {
+      userId: p2.id, name: "Fenwick Thornfoot",
+      data: JSON.stringify({
+        name: "Fenwick Thornfoot", race: "Halfling", characterClass: "Rogue", level: 1,
+        freeLanguage: "Common",
+        history: "A curious halfling locksmith who got in over his head exploring ruins near the Darkwood.",
+        skills: [
+          { skillName: "Pick Locks", purchaseCount: 2, totalCost: 40, acquiredAt: "2024-02-05", reason: "Character creation" },
+          { skillName: "Dagger", purchaseCount: 1, totalCost: 10, acquiredAt: "2024-02-05", reason: "Character creation" },
+          { skillName: "First Aid", purchaseCount: 1, totalCost: 20, acquiredAt: "2024-02-05", reason: "Character creation" },
+        ],
+        skillPointsSpent: 70, equipment: [], silverSpent: 0,
+      }),
+      status: "approved", inactive: true,
+      createdAt: new Date("2024-02-05"),
+      submittedAt: new Date("2024-02-07"),
+      reviewedBy: cbd.id, reviewedAt: new Date("2024-02-08"),
+      reviewNotes: "Approved.",
+    },
+  });
+
+  const inactiveElara = await prisma.character.create({
+    data: {
+      userId: p3.id, name: "Brother Aldous",
+      data: JSON.stringify({
+        name: "Brother Aldous", race: "Dwarf", characterClass: "Cleric", level: 1,
+        freeLanguage: "Common",
+        history: "A dwarven monk who wandered the realm dispensing wisdom and ale in equal measure.",
+        skills: [
+          { skillName: "First Aid", purchaseCount: 1, totalCost: 10, acquiredAt: "2024-03-01", reason: "Character creation" },
+          { skillName: "Earth-Water Ability", purchaseCount: 1, totalCost: 15, acquiredAt: "2024-03-01", reason: "Character creation" },
+          { skillName: "Herbalism", purchaseCount: 1, totalCost: 16, acquiredAt: "2024-03-01", reason: "Character creation" },
+        ],
+        skillPointsSpent: 41, equipment: [], silverSpent: 0,
+      }),
+      status: "approved", inactive: true,
+      createdAt: new Date("2024-03-01"),
+      submittedAt: new Date("2024-03-03"),
+      reviewedBy: cbd.id, reviewedAt: new Date("2024-03-04"),
+      reviewNotes: "Approved. Welcome, Brother.",
+    },
+  });
+
+  const inactiveMarcus = await prisma.character.create({
+    data: {
+      userId: p4.id, name: "Sable Nightwhisper",
+      data: JSON.stringify({
+        name: "Sable Nightwhisper", race: "Common Elf", characterClass: "Rogue", level: 1,
+        freeLanguage: "Elvish",
+        history: "An elven spy who once served the court but vanished after a scandal involving forged documents.",
+        skills: [
+          { skillName: "Dagger", purchaseCount: 1, totalCost: 10, acquiredAt: "2024-01-20", reason: "Character creation" },
+          { skillName: "Tracking", purchaseCount: 1, totalCost: 40, acquiredAt: "2024-01-20", reason: "Character creation" },
+          { skillName: "Appraisal", purchaseCount: 1, totalCost: 15, acquiredAt: "2024-01-20", reason: "Character creation" },
+        ],
+        skillPointsSpent: 65, equipment: [], silverSpent: 0,
+      }),
+      status: "approved", inactive: true,
+      createdAt: new Date("2024-01-20"),
+      submittedAt: new Date("2024-01-22"),
+      reviewedBy: cbd.id, reviewedAt: new Date("2024-01-24"),
+      reviewNotes: "Approved. Interesting concept.",
+    },
+  });
+
+  const inactiveVaelith = await prisma.character.create({
+    data: {
+      userId: p5.id, name: "Old Garreth",
+      data: JSON.stringify({
+        name: "Old Garreth", race: "Human", characterClass: "Mage", level: 1,
+        freeLanguage: "Common",
+        history: "A retired village wizard who once dreamed of grand adventures but settled for fixing leaky roofs with minor cantrips.",
+        skills: [
+          { skillName: "Fire-Air Ability", purchaseCount: 1, totalCost: 15, acquiredAt: "2024-02-15", reason: "Character creation" },
+          { skillName: "Fire-Air 1", purchaseCount: 2, totalCost: 10, acquiredAt: "2024-02-15", reason: "Character creation" },
+          { skillName: "Read/Write", specialization: "Common", purchaseCount: 1, totalCost: 10, acquiredAt: "2024-02-15", reason: "Character creation" },
+        ],
+        skillPointsSpent: 35, equipment: [], silverSpent: 0,
+      }),
+      status: "approved", inactive: true,
+      createdAt: new Date("2024-02-15"),
+      submittedAt: new Date("2024-02-17"),
+      reviewedBy: cbd.id, reviewedAt: new Date("2024-02-18"),
+      reviewNotes: "Approved. Charming backstory.",
+    },
+  });
+
+  // Register inactive characters at the old event (their last activity)
+  for (const { user, char } of [
+    { user: p1, char: inactiveKara },
+    { user: p2, char: inactiveMaeven },
+    { user: p3, char: inactiveElara },
+    { user: p4, char: inactiveMarcus },
+    { user: p5, char: inactiveVaelith },
+  ]) {
+    await prisma.eventRegistration.create({
+      data: {
+        userId: user.id, eventId: eventOld.id, characterId: char.id,
+        ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
+        arfSignedAt: new Date("2024-01-15"), arfYear: 2024,
+        checkedInAt: new Date("2024-02-10T10:00:00"),
+      },
+    });
+  }
+
+  console.log("✓ Created 5 inactive characters (one per player, last activity >12 months ago)");
+  console.log("✓ Created Midwinter Revel 2024 registrations for inactive characters");
+
+  console.log("✓ Created 12 characters (5 approved, 5 inactive, 1 draft, 1 pending review)");
 
   // ─── AUDIT LOGS ──────────────────────────────────────────────────────────────
   const allApproved = [
@@ -389,6 +536,25 @@ async function main() {
   ];
 
   for (const c of allApproved) {
+    await prisma.auditLog.createMany({
+      data: [
+        { characterId: c.char.id, actorId: c.player.id, actorName: c.player.name, actorRole: "user", action: "created", details: JSON.stringify({ name: c.charName }), createdAt: new Date(c.created) },
+        { characterId: c.char.id, actorId: c.player.id, actorName: c.player.name, actorRole: "user", action: "submitted", details: JSON.stringify({ submittedFor: "review" }), createdAt: new Date(c.submitted) },
+        { characterId: c.char.id, actorId: cbd.id, actorName: cbd.name, actorRole: "cbd", action: "approved", details: JSON.stringify({ notes: "Approved for play." }), createdAt: new Date(c.approved) },
+      ],
+    });
+  }
+
+  // Inactive character audit logs
+  const allInactive = [
+    { char: inactiveKara, player: p1, charName: "Brynn the Bold", created: "2024-01-10", submitted: "2024-01-12", approved: "2024-01-14" },
+    { char: inactiveMaeven, player: p2, charName: "Fenwick Thornfoot", created: "2024-02-05", submitted: "2024-02-07", approved: "2024-02-08" },
+    { char: inactiveElara, player: p3, charName: "Brother Aldous", created: "2024-03-01", submitted: "2024-03-03", approved: "2024-03-04" },
+    { char: inactiveMarcus, player: p4, charName: "Sable Nightwhisper", created: "2024-01-20", submitted: "2024-01-22", approved: "2024-01-24" },
+    { char: inactiveVaelith, player: p5, charName: "Old Garreth", created: "2024-02-15", submitted: "2024-02-17", approved: "2024-02-18" },
+  ];
+
+  for (const c of allInactive) {
     await prisma.auditLog.createMany({
       data: [
         { characterId: c.char.id, actorId: c.player.id, actorName: c.player.name, actorRole: "user", action: "created", details: JSON.stringify({ name: c.charName }), createdAt: new Date(c.created) },
@@ -673,7 +839,9 @@ async function main() {
   console.log("  - Midsummer 2026        (upcoming)");
   console.log("  - Harvest Moon 2026     (upcoming)");
   console.log("");
-  console.log("Characters: 5 approved (all Lvl 1), 1 draft, 1 pending review");
+  console.log("Characters: 5 approved, 5 inactive, 1 draft, 1 pending review (all Lvl 1)");
+  console.log("  Inactive: Brynn the Bold, Fenwick Thornfoot, Brother Aldous,");
+  console.log("            Sable Nightwhisper, Old Garreth");
   console.log("Sign-outs: none (clean slate for testing)");
   console.log("Lore: 6 entries, 8 lore characters (5 assigned to players)");
 }
