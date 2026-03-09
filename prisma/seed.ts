@@ -438,7 +438,7 @@ async function main() {
       userId: p1.id, eventId: event1.id, characterId: kara.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2025,
-      checkedInAt: new Date("2025-10-18T09:30:00"), checkedOutAt: new Date("2025-10-19T18:00:00"),
+      checkedInAt: new Date("2025-10-18T09:30:00"),
     },
   });
   await prisma.eventRegistration.create({
@@ -446,7 +446,7 @@ async function main() {
       userId: p2.id, eventId: event1.id, characterId: maeven.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2025,
-      checkedInAt: new Date("2025-10-18T09:45:00"), checkedOutAt: new Date("2025-10-19T18:15:00"),
+      checkedInAt: new Date("2025-10-18T09:45:00"),
     },
   });
   await prisma.eventRegistration.create({
@@ -454,7 +454,7 @@ async function main() {
       userId: p3.id, eventId: event1.id, characterId: elara.id,
       ticketType: "single_b", amountPaid: 4500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-05"), arfYear: 2025,
-      checkedInAt: new Date("2025-10-18T10:15:00"), checkedOutAt: new Date("2025-10-19T17:00:00"),
+      checkedInAt: new Date("2025-10-18T10:15:00"),
     },
   });
   await prisma.eventRegistration.create({
@@ -462,7 +462,7 @@ async function main() {
       userId: p5.id, eventId: event1.id, characterId: vaelith.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-10"), arfYear: 2025,
-      checkedInAt: new Date("2025-10-18T10:00:00"), checkedOutAt: new Date("2025-10-19T18:00:00"),
+      checkedInAt: new Date("2025-10-18T10:00:00"),
     },
   });
 
@@ -476,7 +476,7 @@ async function main() {
       userId: p1.id, eventId: event2.id, characterId: kara.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2026,
-      checkedInAt: new Date("2026-02-15T09:30:00"), checkedOutAt: new Date("2026-02-16T18:00:00"),
+      checkedInAt: new Date("2026-02-15T09:30:00"),
     },
   });
   await prisma.eventRegistration.create({
@@ -484,7 +484,7 @@ async function main() {
       userId: p2.id, eventId: event2.id, characterId: maeven.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2025-10-01"), arfYear: 2026,
-      checkedInAt: new Date("2026-02-15T09:45:00"), checkedOutAt: new Date("2026-02-16T18:30:00"),
+      checkedInAt: new Date("2026-02-15T09:45:00"),
     },
   });
   await prisma.eventRegistration.create({
@@ -492,7 +492,7 @@ async function main() {
       userId: p4.id, eventId: event2.id, characterId: marcus.id,
       ticketType: "single_b", amountPaid: 4500, paymentStatus: "paid",
       arfSignedAt: new Date("2026-01-20"), arfYear: 2026,
-      checkedInAt: new Date("2026-02-15T10:00:00"), checkedOutAt: new Date("2026-02-16T17:30:00"),
+      checkedInAt: new Date("2026-02-15T10:00:00"),
     },
   });
 
@@ -502,7 +502,7 @@ async function main() {
       userId: p3.id, eventId: event2.id, characterId: elara.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2026-01-18"), arfYear: 2026,
-      checkedInAt: new Date("2026-02-15T10:30:00"), checkedOutAt: new Date("2026-02-16T17:45:00"),
+      checkedInAt: new Date("2026-02-15T10:30:00"),
     },
   });
   await prisma.eventRegistration.create({
@@ -510,7 +510,7 @@ async function main() {
       userId: p5.id, eventId: event2.id, characterId: vaelith.id,
       ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
       arfSignedAt: new Date("2026-01-22"), arfYear: 2026,
-      checkedInAt: new Date("2026-02-15T11:00:00"), checkedOutAt: new Date("2026-02-16T18:00:00"),
+      checkedInAt: new Date("2026-02-15T11:00:00"),
     },
   });
 

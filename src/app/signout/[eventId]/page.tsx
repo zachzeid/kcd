@@ -870,7 +870,8 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             </div>
           </div>
 
-          {/* Between-Event Action */}
+          {/* Between-Event Action — hidden for GM/staff roles */}
+          {session?.user?.role !== "gm" && (
           <div className={sectionClass}>
             <h2 className="text-lg font-bold text-white">Between-Event Action</h2>
             <p className="text-gray-500 text-sm">
@@ -1196,6 +1197,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
               </div>
             )}
           </div>
+          )}
 
           {/* Submit */}
           {!readOnly && (
