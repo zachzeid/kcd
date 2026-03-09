@@ -39,12 +39,6 @@ interface SavedCharEntry {
   auditLogs: AuditLogEntry[];
 }
 
-interface SignOutEligibility {
-  characterId: string;
-  eventId: string;
-  eventName: string;
-}
-
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -58,9 +52,6 @@ export default function Home() {
   const [saveMsg, setSaveMsg] = useState("");
 
   const [step, setStep] = useState(0);
-
-  // Sign-out eligibility per character
-  const [signOutMap, setSignOutMap] = useState<Record<string, SignOutEligibility>>({});
 
   // Character state
   const [name, setName] = useState("");
@@ -101,78 +92,6 @@ export default function Home() {
     })();
     return () => { cancelled = true; };
   }, [status, session?.user, charListKey]);
-
-  // Load sign-out eligibility: find events where player can sign out
-  // Eligible when: registered + (event completed, or event date in the past, or character checked_in/checked_out)
-  useEffect(() => {
-    if (status !== "authenticated" || savedChars.length === 0) return;
-
-    async function loadSignOutEligibility() {
-      try {
-        const res = await fetch("/api/events");
-        if (!res.ok) return;
-        const events = await res.json();
-
-        const now = new Date();
-        const eligibleChars = savedChars.filter(
-          (c) => c.status === "approved" || c.status === "checked_out" || c.status === "checked_in"
-        );
-        if (eligibleChars.length === 0) return;
-
-        // Find events where user is registered and event is past/completed
-        const relevantEvents = events.filter(
-          (e: { status: string; date: string; endDate: string | null; myRegistration: unknown }) => {
-            if (!e.myRegistration) return false;
-            const eventEnd = e.endDate ? new Date(e.endDate) : new Date(e.date);
-            const isPast = eventEnd < now;
-            return e.status === "completed" || isPast || e.status === "active";
-          }
-        );
-
-        const newMap: Record<string, SignOutEligibility> = {};
-        for (const event of relevantEvents) {
-          try {
-            const regRes = await fetch(`/api/events/${event.id}/register`);
-            if (!regRes.ok) continue;
-            const reg = await regRes.json();
-
-            if (reg.characterId) {
-              // Character was assigned at check-in
-              if (eligibleChars.some((c: SavedCharEntry) => c.id === reg.characterId)) {
-                newMap[reg.characterId] = {
-                  characterId: reg.characterId,
-                  eventId: event.id,
-                  eventName: event.name,
-                };
-              }
-            } else {
-              // No check-in — show sign-out on first eligible character (player picks on the form)
-              const eventEnd = event.endDate ? new Date(event.endDate) : new Date(event.date);
-              const isPast = eventEnd < now;
-              if (event.status === "completed" || isPast) {
-                const firstEligible = eligibleChars[0];
-                if (firstEligible && !newMap[firstEligible.id]) {
-                  newMap[firstEligible.id] = {
-                    characterId: firstEligible.id,
-                    eventId: event.id,
-                    eventName: event.name,
-                  };
-                }
-              }
-            }
-          } catch {
-            /* ignore */
-          }
-        }
-
-        setSignOutMap(newMap);
-      } catch {
-        /* ignore */
-      }
-    }
-
-    loadSignOutEligibility();
-  }, [status, savedChars]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -480,14 +399,6 @@ export default function Home() {
                               className="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
                             >
                               View
-                            </Link>
-                          )}
-                          {signOutMap[c.id] && (
-                            <Link
-                              href={`/signout/${signOutMap[c.id].eventId}`}
-                              className="px-3 py-1.5 rounded text-xs bg-indigo-700 text-white hover:bg-indigo-600"
-                            >
-                              Sign Out
                             </Link>
                           )}
                           {editable && (
