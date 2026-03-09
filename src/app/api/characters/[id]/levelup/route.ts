@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { xpTable } from "@/data/xp-table";
+import { logAudit } from "@/lib/audit";
 
 // GET: Get character's XP and level-up eligibility
 export async function GET(
@@ -144,12 +145,28 @@ export async function POST(
 
   await prisma.character.update({
     where: { id },
-    data: { 
+    data: {
       data: JSON.stringify(updatedCharData),
     },
   });
 
-  return NextResponse.json({ 
+  // Log level-up in character audit trail
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  await logAudit({
+    characterId: id,
+    actorId: session.user.id,
+    actorName: user?.name ?? "Unknown",
+    actorRole: user?.role ?? "user",
+    action: "level_up",
+    details: {
+      previousLevel: currentLevel,
+      newLevel: targetLevel,
+      skillPointsGained,
+      totalXP: availableXP,
+    },
+  });
+
+  return NextResponse.json({
     success: true,
     newLevel: targetLevel,
     skillPointsGained,
