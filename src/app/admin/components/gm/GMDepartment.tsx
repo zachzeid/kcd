@@ -35,12 +35,15 @@ interface CharacterOption {
 
 interface BEARow {
   id: string;
-  actionType: string;
-  playerName: string;
+  characterId: string;
   characterName: string;
-  details: string;
-  status: string;
-  submittedAt: string;
+  userId: string;
+  playerName: string;
+  eventId: string;
+  eventName: string;
+  betweenEventAction: string;
+  betweenEventDetails: Record<string, unknown> | null;
+  createdAt: string;
 }
 
 type SubTab = "events" | "bea" | "lore";
@@ -71,6 +74,9 @@ export default function GMDepartment() {
   const [npcInput, setNpcInput] = useState("0");
   const [refreshKey, setRefreshKey] = useState(0);
   const [editingEvent, setEditingEvent] = useState<EventRow | null>(null);
+  const [respondModal, setRespondModal] = useState<BEARow | null>(null);
+  const [respondText, setRespondText] = useState("");
+  const [responding, setResponding] = useState(false);
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -85,12 +91,9 @@ export default function GMDepartment() {
         .catch(() => setEvents([]))
         .finally(() => setLoading(false));
     } else if (subTab === "bea") {
-      fetch("/api/admin/cbd/signouts")
-        .then((r) => {
-          if (r.ok) return r.json();
-          return [];
-        })
-        .then(setBeas)
+      fetch("/api/admin/gm/between-events")
+        .then((r) => (r.ok ? r.json() : { betweenEvents: [] }))
+        .then((data) => setBeas(data.betweenEvents ?? []))
         .catch(() => setBeas([]))
         .finally(() => setLoading(false));
     }
@@ -478,33 +481,82 @@ export default function GMDepartment() {
               </p>
             </div>
           ) : (
-            beas.map((bea) => (
-              <div
-                key={bea.id}
-                className="p-4 bg-gray-900 rounded-lg border border-gray-800"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-medium">{bea.actionType}</span>
-                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-900 text-yellow-300">
-                        {bea.status}
-                      </span>
+            beas.map((bea) => {
+              const details = bea.betweenEventDetails;
+              const hasGmResponse = !!(details && details.gmResponse);
+              return (
+                <div
+                  key={bea.id}
+                  className={`p-4 bg-gray-900 rounded-lg border ${
+                    hasGmResponse ? "border-green-800/50" : "border-gray-800"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium capitalize">
+                          {bea.betweenEventAction}
+                        </span>
+                        {hasGmResponse ? (
+                          <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-900 text-green-300">
+                            Responded
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded text-xs font-bold bg-yellow-900 text-yellow-300">
+                            Awaiting Response
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-gray-400 text-sm mt-1">
+                        {bea.playerName} &middot; {bea.characterName} &middot; {bea.eventName}
+                      </div>
+                      {details && (
+                        <div className="mt-2 text-sm text-gray-300 space-y-1">
+                          {Object.entries(details).map(([key, val]) => {
+                            if (key.startsWith("gm") || !val) return null;
+                            return (
+                              <div key={key}>
+                                <span className="text-gray-500 text-xs">{key}: </span>
+                                <span>{String(val)}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {hasGmResponse && details && (
+                        <div className="mt-3 p-2 rounded bg-green-900/20 border border-green-800/30">
+                          <div className="text-green-400 text-xs font-bold mb-1">
+                            GM Response
+                            {details.gmRespondedByName ? (
+                              <span className="font-normal text-gray-500">
+                                {" "}by {String(details.gmRespondedByName)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="text-gray-300 text-sm">{String(details.gmResponse)}</div>
+                        </div>
+                      )}
+                      <div className="text-gray-600 text-xs mt-2">
+                        Submitted {new Date(bea.createdAt).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="text-gray-400 text-sm mt-1">
-                      Player: {bea.playerName} | Character: {bea.characterName}
-                    </div>
-                    <div className="text-gray-500 text-sm mt-1">{bea.details}</div>
-                    <div className="text-gray-600 text-xs mt-1">
-                      Submitted {new Date(bea.submittedAt).toLocaleString()}
-                    </div>
+                    <button
+                      onClick={() => {
+                        setRespondModal(bea);
+                        setRespondText(hasGmResponse ? String(details.gmResponse) : "");
+                      }}
+                      className={`ml-3 px-3 py-1.5 rounded text-xs shrink-0 ${
+                        hasGmResponse
+                          ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                          : "bg-blue-800 text-blue-300 hover:bg-blue-700"
+                      }`}
+                    >
+                      {hasGmResponse ? "Edit Response" : "Respond"}
+                    </button>
                   </div>
-                  <button className="px-3 py-1.5 rounded text-xs bg-blue-800 text-blue-300 hover:bg-blue-700">
-                    Respond
-                  </button>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       ) : (
@@ -621,6 +673,91 @@ export default function GMDepartment() {
                   {actionLoading ? "Saving..." : "Award"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Between-Event Response Modal */}
+      {respondModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-white mb-1">
+              Respond to Between-Event Action
+            </h3>
+            <p className="text-gray-400 text-sm mb-4">
+              {respondModal.playerName} &middot; {respondModal.characterName} &middot;{" "}
+              <span className="capitalize">{respondModal.betweenEventAction}</span>
+            </p>
+
+            {/* Show the player's submission details */}
+            {respondModal.betweenEventDetails && (
+              <div className="mb-4 p-3 rounded bg-gray-800 border border-gray-700">
+                <div className="text-gray-400 text-xs font-bold mb-2">Player&apos;s Submission</div>
+                <div className="text-sm text-gray-300 space-y-1">
+                  {Object.entries(respondModal.betweenEventDetails).map(([key, val]) => {
+                    if (key.startsWith("gm") || !val) return null;
+                    return (
+                      <div key={key}>
+                        <span className="text-gray-500 text-xs">{key}: </span>
+                        <span>{String(val)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-2">Your Narrative Response</label>
+              <textarea
+                value={respondText}
+                onChange={(e) => setRespondText(e.target.value)}
+                rows={6}
+                placeholder="Describe what happens during the character's between-event action..."
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:border-blue-500 outline-none"
+              />
+            </div>
+            <div className="flex gap-3 justify-end mt-4">
+              <button
+                onClick={() => {
+                  setRespondModal(null);
+                  setRespondText("");
+                }}
+                className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!respondText.trim()) return;
+                  setResponding(true);
+                  try {
+                    const res = await fetch(
+                      `/api/admin/gm/between-events/${respondModal.id}/respond`,
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ response: respondText.trim() }),
+                      }
+                    );
+                    if (res.ok) {
+                      setRespondModal(null);
+                      setRespondText("");
+                      refresh();
+                    } else {
+                      const err = await res.json();
+                      alert(err.error || "Failed to submit response");
+                    }
+                  } finally {
+                    setResponding(false);
+                  }
+                }}
+                disabled={responding || !respondText.trim()}
+                className="px-4 py-2 rounded bg-blue-700 text-white hover:bg-blue-600 disabled:opacity-50"
+              >
+                {responding ? "Submitting..." : "Submit Response"}
+              </button>
             </div>
           </div>
         </div>

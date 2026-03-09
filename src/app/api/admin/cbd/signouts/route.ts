@@ -33,5 +33,9 @@ export async function GET(req: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(signOuts);
+  // Return full sign-out data for the process modal
+  return NextResponse.json(signOuts.map((so) => ({
+    ...so,
+    // Parse JSON fields for the frontend (keep as strings, let frontend parse)
+  })));
 }

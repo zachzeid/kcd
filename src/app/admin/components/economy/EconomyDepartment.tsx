@@ -339,13 +339,305 @@ export default function EconomyDepartment() {
           )}
         </div>
       ) : (
+        <CoinEarningView />
+      )}
+    </div>
+  );
+}
+
+// === Profession Earning Rate Tables (copper) ===
+const PROFESSION_RATES: Record<string, { standard: number; winter: number }> = {
+  novice:     { standard: 800,  winter: 4000 },
+  trainee:    { standard: 1600, winter: 8000 },
+  apprentice: { standard: 2400, winter: 12000 },
+  journeyman: { standard: 3200, winter: 16000 },
+  master:     { standard: 4000, winter: 20000 },
+};
+
+function craftLevelToTier(level: number): string {
+  if (level <= 1) return "novice";
+  if (level <= 2) return "trainee";
+  if (level <= 3) return "apprentice";
+  if (level <= 4) return "journeyman";
+  return "master";
+}
+
+interface TradeSkillInfo {
+  skillName: string;
+  specialization?: string;
+  level: number;
+}
+
+interface ProfessionCharacter {
+  characterId: string;
+  characterName: string;
+  playerName: string;
+  characterClass: string;
+  level: number;
+  tradeSkills: TradeSkillInfo[];
+}
+
+interface EarningRow {
+  characterId: string;
+  characterName: string;
+  playerName: string;
+  skillName: string;
+  skillLevel: number;
+  tier: string;
+  amount: number;
+  selected: boolean;
+}
+
+interface ProcessResult {
+  characterId: string;
+  skillName: string;
+  tier: string;
+  amount: number;
+  amountFormatted: string;
+  newBalance: number;
+  newBalanceFormatted: string;
+}
+
+function CoinEarningView() {
+  const [characters, setCharacters] = useState<ProfessionCharacter[]>([]);
+  const [rows, setRows] = useState<EarningRow[]>([]);
+  const [isWinter, setIsWinter] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [results, setResults] = useState<ProcessResult[] | null>(null);
+  const [errors, setErrors] = useState<{ characterId: string; error: string }[]>([]);
+
+  // Load characters with trade skills
+  useEffect(() => {
+    fetch("/api/admin/economy/profession-earnings")
+      .then((r) => (r.ok ? r.json() : { characters: [] }))
+      .then((data) => {
+        const chars: ProfessionCharacter[] = data.characters ?? [];
+        setCharacters(chars);
+        buildRows(chars, false);
+      })
+      .catch(() => setCharacters([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  function buildRows(chars: ProfessionCharacter[], winter: boolean) {
+    const newRows: EarningRow[] = [];
+    for (const char of chars) {
+      for (const skill of char.tradeSkills) {
+        const tier = craftLevelToTier(skill.level);
+        const season = winter ? "winter" : "standard";
+        const amount = PROFESSION_RATES[tier][season];
+        newRows.push({
+          characterId: char.characterId,
+          characterName: char.characterName,
+          playerName: char.playerName,
+          skillName: skill.specialization
+            ? `${skill.skillName} (${skill.specialization})`
+            : skill.skillName,
+          skillLevel: skill.level,
+          tier,
+          amount,
+          selected: true,
+        });
+      }
+    }
+    setRows(newRows);
+  }
+
+  function toggleWinter(winter: boolean) {
+    setIsWinter(winter);
+    buildRows(characters, winter);
+  }
+
+  function toggleRow(index: number) {
+    setRows((prev) =>
+      prev.map((r, i) => (i === index ? { ...r, selected: !r.selected } : r))
+    );
+  }
+
+  function toggleAll(selected: boolean) {
+    setRows((prev) => prev.map((r) => ({ ...r, selected })));
+  }
+
+  async function processEarnings() {
+    const selected = rows.filter((r) => r.selected);
+    if (selected.length === 0) return;
+
+    setProcessing(true);
+    setResults(null);
+    setErrors([]);
+
+    try {
+      const r = await fetch("/api/admin/economy/profession-earnings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          earnings: selected.map((row) => ({
+            characterId: row.characterId,
+            skillName: row.skillName,
+            skillLevel: row.skillLevel,
+            isWinter,
+          })),
+        }),
+      });
+
+      if (r.ok) {
+        const data = await r.json();
+        setResults(data.results ?? []);
+        setErrors(data.errors ?? []);
+      } else {
+        const err = await r.json().catch(() => ({ error: "Failed to process" }));
+        setErrors([{ characterId: "", error: err.error ?? "Request failed" }]);
+      }
+    } catch {
+      setErrors([{ characterId: "", error: "Network error" }]);
+    } finally {
+      setProcessing(false);
+    }
+  }
+
+  if (loading) {
+    return <div className="text-gray-500 text-center py-8">Loading profession data...</div>;
+  }
+
+  const selectedCount = rows.filter((r) => r.selected).length;
+  const totalEarning = rows.filter((r) => r.selected).reduce((sum, r) => sum + r.amount, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Results banner */}
+      {results && (
+        <div className="p-4 rounded-lg border border-green-800/50 bg-green-900/20">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-green-400 font-bold text-sm">
+              Processed {results.length} earning{results.length !== 1 ? "s" : ""}
+            </h3>
+            <button
+              onClick={() => setResults(null)}
+              className="text-gray-400 hover:text-white text-xs"
+            >
+              Dismiss
+            </button>
+          </div>
+          <div className="space-y-1">
+            {results.map((r, i) => (
+              <div key={i} className="text-xs flex items-center justify-between">
+                <span className="text-gray-300">
+                  {r.skillName} ({r.tier})
+                </span>
+                <span className="text-green-400">+{r.amountFormatted} → {r.newBalanceFormatted}</span>
+              </div>
+            ))}
+          </div>
+          {errors.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-red-800/30">
+              {errors.map((e, i) => (
+                <div key={i} className="text-red-400 text-xs">{e.error}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {rows.length === 0 ? (
         <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
-          <p className="text-gray-500">Coin Earning</p>
+          <p className="text-gray-500">No characters with trade professions found.</p>
           <p className="text-gray-600 text-xs mt-2">
-            Batch profession earning processing will be available here. This feature allows economy
-            marshals to process coin earning for all characters with professions after an event.
+            Approved characters with Craft, Herbalism, Forensics, or Pick Locks skills will appear here.
           </p>
         </div>
+      ) : (
+        <>
+          {/* Controls */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isWinter}
+                  onChange={(e) => toggleWinter(e.target.checked)}
+                  className="rounded border-gray-600 bg-gray-800 text-amber-500"
+                />
+                <span className="text-sm text-gray-300">Winter Period</span>
+                <span className="text-xs text-gray-500">(5x rates)</span>
+              </label>
+              <span className="text-xs text-gray-500">
+                {selectedCount} of {rows.length} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-bold text-amber-400">
+                Total: {formatSilver(totalEarning)}
+              </span>
+              <button
+                onClick={processEarnings}
+                disabled={processing || selectedCount === 0}
+                className="px-4 py-2 rounded-lg text-sm font-medium bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processing ? "Processing..." : `Process ${selectedCount} Earning${selectedCount !== 1 ? "s" : ""}`}
+              </button>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-2 px-3 w-8">
+                    <input
+                      type="checkbox"
+                      checked={selectedCount === rows.length}
+                      onChange={(e) => toggleAll(e.target.checked)}
+                      className="rounded border-gray-600 bg-gray-800 text-amber-500"
+                    />
+                  </th>
+                  <th className="text-left py-2 px-3">Character</th>
+                  <th className="text-left py-2 px-3">Player</th>
+                  <th className="text-left py-2 px-3">Profession</th>
+                  <th className="text-center py-2 px-3">Level</th>
+                  <th className="text-center py-2 px-3">Tier</th>
+                  <th className="text-right py-2 px-3">Earning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr
+                    key={`${row.characterId}-${row.skillName}`}
+                    className={`border-b border-gray-800 ${row.selected ? "" : "opacity-40"}`}
+                  >
+                    <td className="py-1.5 px-3">
+                      <input
+                        type="checkbox"
+                        checked={row.selected}
+                        onChange={() => toggleRow(i)}
+                        className="rounded border-gray-600 bg-gray-800 text-amber-500"
+                      />
+                    </td>
+                    <td className="py-1.5 px-3 text-white">{row.characterName}</td>
+                    <td className="py-1.5 px-3 text-gray-400">{row.playerName}</td>
+                    <td className="py-1.5 px-3 text-gray-300">{row.skillName}</td>
+                    <td className="py-1.5 px-3 text-center text-gray-400">{row.skillLevel}</td>
+                    <td className="py-1.5 px-3 text-center">
+                      <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                        row.tier === "master" ? "bg-purple-900 text-purple-300" :
+                        row.tier === "journeyman" ? "bg-blue-900 text-blue-300" :
+                        row.tier === "apprentice" ? "bg-green-900 text-green-300" :
+                        row.tier === "trainee" ? "bg-yellow-900 text-yellow-300" :
+                        "bg-gray-800 text-gray-400"
+                      }`}>
+                        {row.tier}
+                      </span>
+                    </td>
+                    <td className="py-1.5 px-3 text-right text-amber-400 font-medium">
+                      {formatSilver(row.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

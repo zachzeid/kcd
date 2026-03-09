@@ -116,7 +116,8 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [status, session?.user, charListKey]);
 
-  // Load sign-out eligibility: find registrations where the character was checked out
+  // Load sign-out eligibility: find events where player can sign out
+  // Eligible when: registered + (event completed, or event date in the past, or character checked_in/checked_out)
   useEffect(() => {
     if (status !== "authenticated" || savedChars.length === 0) return;
 
@@ -126,31 +127,52 @@ export default function Home() {
         if (!res.ok) return;
         const events = await res.json();
 
-        // For each character that is checked_out or checked_in, find a matching event registration
+        const now = new Date();
         const eligibleChars = savedChars.filter(
-          (c) => c.status === "checked_out" || c.status === "checked_in"
+          (c) => c.status === "approved" || c.status === "checked_out" || c.status === "checked_in"
         );
         if (eligibleChars.length === 0) return;
 
-        // Find events that are active or completed where user has a registration
+        // Find events where user is registered and event is past/completed
         const relevantEvents = events.filter(
-          (e: { status: string; myRegistration: unknown }) =>
-            e.myRegistration && (e.status === "active" || e.status === "completed")
+          (e: { status: string; date: string; endDate: string | null; myRegistration: unknown }) => {
+            if (!e.myRegistration) return false;
+            const eventEnd = e.endDate ? new Date(e.endDate) : new Date(e.date);
+            const isPast = eventEnd < now;
+            return e.status === "completed" || isPast || e.status === "active";
+          }
         );
 
         const newMap: Record<string, SignOutEligibility> = {};
         for (const event of relevantEvents) {
-          // Fetch registration details to get characterId
           try {
             const regRes = await fetch(`/api/events/${event.id}/register`);
             if (!regRes.ok) continue;
             const reg = await regRes.json();
-            if (reg.characterId && eligibleChars.some((c: SavedCharEntry) => c.id === reg.characterId)) {
-              newMap[reg.characterId] = {
-                characterId: reg.characterId,
-                eventId: event.id,
-                eventName: event.name,
-              };
+
+            if (reg.characterId) {
+              // Character was assigned at check-in
+              if (eligibleChars.some((c: SavedCharEntry) => c.id === reg.characterId)) {
+                newMap[reg.characterId] = {
+                  characterId: reg.characterId,
+                  eventId: event.id,
+                  eventName: event.name,
+                };
+              }
+            } else {
+              // No check-in — show sign-out on first eligible character (player picks on the form)
+              const eventEnd = event.endDate ? new Date(event.endDate) : new Date(event.date);
+              const isPast = eventEnd < now;
+              if (event.status === "completed" || isPast) {
+                const firstEligible = eligibleChars[0];
+                if (firstEligible && !newMap[firstEligible.id]) {
+                  newMap[firstEligible.id] = {
+                    characterId: firstEligible.id,
+                    eventId: event.id,
+                    eventName: event.name,
+                  };
+                }
+              }
             }
           } catch {
             /* ignore */

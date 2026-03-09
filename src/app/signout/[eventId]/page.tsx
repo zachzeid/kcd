@@ -60,6 +60,10 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
   const [characterId, setCharacterId] = useState("");
   const [signOutStatus, setSignOutStatus] = useState("");
 
+  // Character selection (when not pre-assigned by staff check-in)
+  const [availableCharacters, setAvailableCharacters] = useState<{ id: string; name: string }[]>([]);
+  const [needsCharacterSelect, setNeedsCharacterSelect] = useState(false);
+
   // Form fields
   const [npcMinutes, setNpcMinutes] = useState(0);
   const [npcDetails, setNpcDetails] = useState("");
@@ -113,26 +117,47 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
         }
         const registration: RegistrationData = await regRes.json();
 
-        if (!registration.characterId) {
-          setError("No character associated with this registration");
-          setLoading(false);
-          return;
+        if (registration.characterId) {
+          // Character was assigned during staff check-in
+          setCharacterId(registration.characterId);
+
+          // Fetch character name
+          const charRes = await fetch(`/api/characters/${registration.characterId}`);
+          if (charRes.ok) {
+            const charData = await charRes.json();
+            setCharacterName(charData.name);
+          }
+        } else {
+          // No staff check-in — let player pick a character
+          const charsRes = await fetch("/api/characters");
+          if (charsRes.ok) {
+            const allChars = await charsRes.json();
+            const eligible = allChars.filter(
+              (c: { status: string }) =>
+                c.status === "approved" || c.status === "checked_in" || c.status === "checked_out"
+            );
+            setAvailableCharacters(eligible.map((c: { id: string; name: string }) => ({ id: c.id, name: c.name })));
+
+            if (eligible.length === 1) {
+              // Auto-select if only one character
+              setCharacterId(eligible[0].id);
+              setCharacterName(eligible[0].name);
+            } else if (eligible.length > 1) {
+              setNeedsCharacterSelect(true);
+            } else {
+              setError("You have no approved characters to sign out with");
+              setLoading(false);
+              return;
+            }
+          }
         }
 
-        setCharacterId(registration.characterId);
-
-        // Fetch character name
-        const charRes = await fetch(`/api/characters/${registration.characterId}`);
-        if (charRes.ok) {
-          const charData = await charRes.json();
-          setCharacterName(charData.name);
-        }
-
-        // Check for existing sign-out
-        const signOutRes = await fetch(
-          `/api/characters/${registration.characterId}/signout?eventId=${eventId}`
-        );
-        if (signOutRes.ok) {
+        // Check for existing sign-out (only if we have a characterId)
+        const signOutCharId = registration.characterId || characterId;
+        const signOutRes = signOutCharId
+          ? await fetch(`/api/characters/${signOutCharId}/signout?eventId=${eventId}`)
+          : null;
+        if (signOutRes?.ok) {
           const signOut = await signOutRes.json();
           // Pre-fill form
           setNpcMinutes(signOut.npcMinutes ?? 0);
@@ -315,7 +340,52 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
               </div>
               <div>
                 <div className={labelClass}>Character</div>
-                <div className="text-white font-medium">{characterName || "Loading..."}</div>
+                {needsCharacterSelect && !characterId ? (
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const selected = availableCharacters.find((c) => c.id === e.target.value);
+                      if (selected) {
+                        setCharacterId(selected.id);
+                        setCharacterName(selected.name);
+                        setNeedsCharacterSelect(false);
+                        // Check for existing sign-out for this character
+                        fetch(`/api/characters/${selected.id}/signout?eventId=${eventId}`)
+                          .then((r) => r.ok ? r.json() : null)
+                          .then((signOut) => {
+                            if (signOut) {
+                              setNpcMinutes(signOut.npcMinutes ?? 0);
+                              setNpcDetails(signOut.npcDetails ?? "");
+                              setStaffMinutes(signOut.staffMinutes ?? 0);
+                              setStaffDetails(signOut.staffDetails ?? "");
+                              setLifeCreditsLost(signOut.lifeCreditsLost ?? 0);
+                              setSkillsLearned(signOut.skillsLearned ? JSON.parse(signOut.skillsLearned) : []);
+                              setSkillsTaught(signOut.skillsTaught ? JSON.parse(signOut.skillsTaught) : []);
+                              setEventRating(signOut.eventRating ?? null);
+                              setRoleplayQuality(signOut.roleplayQuality ?? "");
+                              setEnjoyedEncounters(signOut.enjoyedEncounters ?? "");
+                              setDislikedEncounters(signOut.dislikedEncounters ?? "");
+                              setNotableRoleplay(signOut.notableRoleplay ?? "");
+                              setAtmosphereFeedback(signOut.atmosphereFeedback ?? "");
+                              setBetweenEventAction((signOut.betweenEventAction) ?? "nothing");
+                              setBetweenEventDetails(signOut.betweenEventDetails ? JSON.parse(signOut.betweenEventDetails) : {});
+                              setSignOutStatus(signOut.status);
+                              if (signOut.status !== "pending") setReadOnly(true);
+                            }
+                          })
+                          .catch(() => {});
+                      }
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">Select a character...</option>
+                    {availableCharacters.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="text-white font-medium">{characterName || "Loading..."}</div>
+                )}
               </div>
             </div>
           </div>

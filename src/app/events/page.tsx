@@ -158,6 +158,11 @@ function EventCard({
   const arfOk = !!event.myRegistration?.arfSignedAt;
   const isPaid = event.myRegistration?.paymentStatus === "paid" || event.myRegistration?.paymentStatus === "comped";
 
+  // Sign-out eligible: registered + (event completed or end date in the past)
+  const eventEndDate = event.endDate ? new Date(event.endDate) : new Date(event.date);
+  const isPast = eventEndDate < new Date();
+  const canSignOut = isRegistered && (event.status === "completed" || isPast);
+
   return (
     <div className="p-5 bg-gray-900 rounded-lg border border-gray-800">
       <div className="flex items-start justify-between">
@@ -215,6 +220,16 @@ function EventCard({
           >
             Register for Event
           </button>
+        )}
+
+        {/* Sign Out button for past/completed events */}
+        {canSignOut && (
+          <Link
+            href={`/signout/${event.id}`}
+            className="px-4 py-2 rounded-lg bg-indigo-700 text-white font-medium hover:bg-indigo-600 text-sm"
+          >
+            Sign Out
+          </Link>
         )}
 
         {/* View Recap link */}

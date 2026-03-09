@@ -17,6 +17,64 @@ interface EarningEntry {
   isWinter?: boolean;
 }
 
+// Trade skill names from the skills data (category: "Trade", maxPurchases: 5)
+const TRADE_SKILL_NAMES = ["Craft", "Forensics", "Herbalism", "Pick Locks"];
+
+interface CharacterData {
+  name: string;
+  race: string;
+  characterClass: string;
+  level: number;
+  skills: { skillName: string; specialization?: string; purchaseCount: number; totalCost: number }[];
+}
+
+// GET: List approved characters with trade skills for profession earning
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!user || !canAccessEconomy(user.role)) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  }
+
+  // Get all approved characters
+  const characters = await prisma.character.findMany({
+    where: { status: "approved" },
+    include: { user: { select: { name: true } } },
+  });
+
+  // Extract characters that have trade skills
+  const results = [];
+  for (const char of characters) {
+    const data = char.data as unknown as CharacterData;
+    if (!data?.skills) continue;
+
+    const tradeSkills = data.skills.filter((s) =>
+      TRADE_SKILL_NAMES.some((tn) => s.skillName === tn || s.skillName.startsWith(tn + " ("))
+    );
+
+    if (tradeSkills.length > 0) {
+      results.push({
+        characterId: char.id,
+        characterName: data.name,
+        playerName: char.user?.name ?? "Unknown",
+        characterClass: data.characterClass,
+        level: data.level,
+        tradeSkills: tradeSkills.map((s) => ({
+          skillName: s.skillName,
+          specialization: s.specialization,
+          level: s.purchaseCount,
+        })),
+      });
+    }
+  }
+
+  return NextResponse.json({ characters: results });
+}
+
 // POST: Batch process profession earnings for an event period
 export async function POST(req: NextRequest) {
   const session = await auth();
