@@ -10,6 +10,15 @@ import {
   type BetweenEventAction,
 } from "@/lib/economy";
 import { skills as allSkills, skillCategories } from "@/data/skills";
+import { ITEM_TYPES, craftLevelToTier, PROFESSION_RATES } from "@/lib/economy";
+
+const TRADE_SKILL_NAMES = ["Craft", "Forensics", "Herbalism", "Pick Locks"];
+
+function extractTradeSkills(skills: { skillName: string; specialization?: string; purchaseCount: number }[]) {
+  return skills.filter((s) => TRADE_SKILL_NAMES.some((t) => s.skillName.startsWith(t)));
+}
+
+type ItemType = keyof typeof ITEM_TYPES;
 
 interface SkillLearned {
   skillName: string;
@@ -65,8 +74,11 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
   const [availableCharacters, setAvailableCharacters] = useState<{ id: string; name: string }[]>([]);
   const [needsCharacterSelect, setNeedsCharacterSelect] = useState(false);
 
-  // Character's purchased skills (for "skills taught" dropdown)
+  // Character's purchased skills (for "skills taught" dropdown and trade skill detection)
   const [characterSkills, setCharacterSkills] = useState<string[]>([]);
+  const [characterTradeSkills, setCharacterTradeSkills] = useState<
+    { skillName: string; specialization?: string; purchaseCount: number }[]
+  >([]);
 
   // Level-up state
   const [levelUpData, setLevelUpData] = useState<{
@@ -148,6 +160,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             setCharacterName(charData.name);
             if (charData.data?.skills) {
               setCharacterSkills(charData.data.skills.map((s: { skillName: string }) => s.skillName));
+              setCharacterTradeSkills(extractTradeSkills(charData.data.skills));
             }
           }
         } else {
@@ -171,6 +184,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 .then((cd) => {
                   if (cd?.data?.skills) {
                     setCharacterSkills(cd.data.skills.map((s: { skillName: string }) => s.skillName));
+                    setCharacterTradeSkills(extractTradeSkills(cd.data.skills));
                   }
                 })
                 .catch(() => {});
@@ -491,12 +505,13 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                         setCharacterId(selected.id);
                         setCharacterName(selected.name);
                         setNeedsCharacterSelect(false);
-                        // Load character skills for taught dropdown
+                        // Load character skills for taught dropdown and trade skills
                         fetch(`/api/characters/${selected.id}`)
                           .then((r) => r.ok ? r.json() : null)
                           .then((cd) => {
                             if (cd?.data?.skills) {
                               setCharacterSkills(cd.data.skills.map((s: { skillName: string }) => s.skillName));
+                              setCharacterTradeSkills(extractTradeSkills(cd.data.skills));
                             }
                           })
                           .catch(() => {});
@@ -1011,60 +1026,98 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
 
             {betweenEventAction === "crafting" && (
               <div className="space-y-4 pt-2 border-t border-gray-800">
+                {/* Crafting mode: items or coin */}
                 <div>
-                  <label className={labelClass}>Purpose</label>
-                  <textarea
-                    value={betweenEventDetails.purpose ?? ""}
-                    onChange={(e) => updateBEDetail("purpose", e.target.value)}
-                    disabled={readOnly}
-                    placeholder="What are you crafting and why?"
-                    className={textareaClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Items Being Crafted</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.items ?? ""}
-                    onChange={(e) => updateBEDetail("items", e.target.value)}
-                    disabled={readOnly}
-                    placeholder="List the items"
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Crafting Skills</label>
-                  <div className="flex flex-wrap gap-1.5 mt-1">
-                    {characterSkills.length > 0 ? characterSkills.map((name) => (
-                      <button
-                        key={name}
-                        type="button"
-                        disabled={readOnly}
-                        onClick={() => toggleSkill("craftingSkills", name)}
-                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                          selectedCraftingSkills.includes(name)
-                            ? "bg-amber-600 text-white"
-                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                        } disabled:cursor-not-allowed`}
+                  <label className={labelClass}>What are you doing?</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: "items", label: "Crafting Items (Tag Submission)" },
+                      { key: "coin", label: "Crafting for Coin" },
+                    ].map(({ key, label }) => (
+                      <label
+                        key={key}
+                        className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
+                          betweenEventDetails.craftingMode === key
+                            ? "bg-amber-900/30 border-amber-600 text-amber-300"
+                            : "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
+                        } ${readOnly ? "cursor-not-allowed opacity-50" : ""}`}
                       >
-                        {name}
-                      </button>
-                    )) : (
-                      <span className="text-gray-500 text-sm">No skills on character</span>
-                    )}
+                        <input
+                          type="radio"
+                          name="craftingMode"
+                          value={key}
+                          checked={betweenEventDetails.craftingMode === key}
+                          onChange={() => updateBEDetail("craftingMode", key)}
+                          disabled={readOnly}
+                          className="sr-only"
+                        />
+                        <span className="text-sm font-medium">{label}</span>
+                      </label>
+                    ))}
                   </div>
                 </div>
-                <div>
-                  <label className={labelClass}>Location</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.location ?? ""}
-                    onChange={(e) => updateBEDetail("location", e.target.value)}
-                    disabled={readOnly}
-                    placeholder="Where are you crafting?"
-                    className={inputClass}
+
+                {/* Craft for Coin */}
+                {betweenEventDetails.craftingMode === "coin" && (
+                  <div className="space-y-3">
+                    <div>
+                      <label className={labelClass}>Trade Skill</label>
+                      {characterTradeSkills.length > 0 ? (
+                        <select
+                          value={betweenEventDetails.coinSkill ?? ""}
+                          onChange={(e) => {
+                            const skill = characterTradeSkills.find(
+                              (s) => `${s.skillName}${s.specialization ? ` (${s.specialization})` : ""}` === e.target.value
+                            );
+                            updateBEDetail("coinSkill", e.target.value);
+                            updateBEDetail("coinSkillLevel", String(skill?.purchaseCount ?? 1));
+                          }}
+                          disabled={readOnly}
+                          className={inputClass}
+                        >
+                          <option value="">Select trade skill...</option>
+                          {characterTradeSkills.map((s) => {
+                            const label = s.specialization ? `${s.skillName} (${s.specialization})` : s.skillName;
+                            const tier = craftLevelToTier(s.purchaseCount);
+                            const rate = PROFESSION_RATES[tier].standard;
+                            return (
+                              <option key={label} value={label}>
+                                {label} Lvl {s.purchaseCount} ({tier}) — {rate / 100} silver
+                              </option>
+                            );
+                          })}
+                        </select>
+                      ) : (
+                        <div className="text-gray-500 text-sm p-3 bg-gray-800 rounded-lg border border-gray-700">
+                          No trade skills on this character (Craft, Herbalism, Forensics, or Pick Locks required)
+                        </div>
+                      )}
+                    </div>
+                    {betweenEventDetails.coinSkill && (
+                      <div className="bg-gray-800/50 rounded-lg border border-gray-700 p-3">
+                        <div className="text-sm text-gray-300">
+                          Estimated earning:{" "}
+                          <span className="text-amber-400 font-bold">
+                            {PROFESSION_RATES[craftLevelToTier(parseInt(betweenEventDetails.coinSkillLevel ?? "1"))].standard / 100} silver
+                          </span>
+                          <span className="text-gray-500 text-xs ml-2">(standard period)</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Craft Items — Item Creation Form */}
+                {betweenEventDetails.craftingMode === "items" && (
+                  <ItemCreationSection
+                    characterId={characterId}
+                    eventId={eventId}
+                    readOnly={readOnly}
+                    inputClass={inputClass}
+                    textareaClass={textareaClass}
+                    labelClass={labelClass}
                   />
-                </div>
+                )}
               </div>
             )}
 
@@ -1164,6 +1217,380 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
           )}
         </form>
       </main>
+    </div>
+  );
+}
+
+// ─── Item Creation Section ──────────────────────────────────────────────────
+
+const ITEM_TYPE_OPTIONS = Object.entries(ITEM_TYPES).filter(([k]) => k !== "coin_earning");
+
+const ARMOR_TYPES = ["Leather", "Composite", "Chain/Scale", "Plate"] as const;
+const TOXIN_TYPES = ["Liquid", "Vapor", "Paste"] as const;
+const ELEMENTS = ["Fire", "Air", "Earth", "Water"] as const;
+const ENERGIES = ["Positive", "Negative", "Neutral", "Wild"] as const;
+
+interface ItemFormData {
+  itemType: string;
+  itemName: string;
+  craftingSkill: string;
+  craftingLevel: number;
+  quantity: number;
+  craftingTime: string;
+  primaryMaterial: string;
+  secondaryMaterial: string;
+  masterCrafted: boolean;
+  hasMaterialUnits: string;
+  itemDescription: string;
+  // Type-specific
+  armorType: string;
+  weaponType: string;
+  spellName: string;
+  spellLevel: number;
+  element: string;
+  energy: string;
+  poisonous: boolean;
+  toxinType: string;
+  trapType: string;
+  notes: string;
+}
+
+const EMPTY_ITEM: ItemFormData = {
+  itemType: "", itemName: "", craftingSkill: "", craftingLevel: 1, quantity: 1,
+  craftingTime: "", primaryMaterial: "", secondaryMaterial: "", masterCrafted: false,
+  hasMaterialUnits: "", itemDescription: "", armorType: "", weaponType: "",
+  spellName: "", spellLevel: 1, element: "", energy: "", poisonous: false,
+  toxinType: "", trapType: "", notes: "",
+};
+
+function ItemCreationSection({
+  characterId, eventId, readOnly, inputClass, textareaClass, labelClass,
+}: {
+  characterId: string;
+  eventId: string;
+  readOnly: boolean;
+  inputClass: string;
+  textareaClass: string;
+  labelClass: string;
+}) {
+  const [items, setItems] = useState<{ id: string; itemType: string; itemName: string; status: string }[]>([]);
+  const [form, setForm] = useState<ItemFormData>({ ...EMPTY_ITEM });
+  const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Load existing item submissions for this event
+  useEffect(() => {
+    if (!characterId) return;
+    fetch(`/api/characters/${characterId}/items?eventId=${eventId}`)
+      .then((r) => r.ok ? r.json() : { items: [] })
+      .then((data) => setItems(data.items ?? []))
+      .catch(() => {});
+  }, [characterId, eventId]);
+
+  const updateForm = <K extends keyof ItemFormData>(key: K, value: ItemFormData[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const submitItem = async () => {
+    if (!form.itemType || !form.itemName || !form.craftingSkill) {
+      setError("Item type, name, and crafting skill are required");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+
+    const extraDetails: Record<string, unknown> = {};
+    const t = form.itemType;
+    if (form.armorType) extraDetails.armorType = form.armorType;
+    if (form.weaponType) extraDetails.weaponType = form.weaponType;
+    if (form.spellName) extraDetails.spellName = form.spellName;
+    if (form.spellLevel > 1) extraDetails.spellLevel = form.spellLevel;
+    if (form.element) extraDetails.element = form.element;
+    if (form.energy) extraDetails.energy = form.energy;
+    if (form.poisonous) extraDetails.poisonous = true;
+    if (form.toxinType) extraDetails.toxinType = form.toxinType;
+    if (form.trapType) extraDetails.trapType = form.trapType;
+    if (form.hasMaterialUnits) extraDetails.hasMaterialUnits = form.hasMaterialUnits;
+    if (form.notes) extraDetails.notes = form.notes;
+    if (["armor", "weapons", "misc_craft"].includes(t) && form.masterCrafted) {
+      extraDetails.masterCrafted = true;
+    }
+
+    try {
+      const res = await fetch(`/api/characters/${characterId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId,
+          itemType: form.itemType,
+          itemName: form.itemName,
+          itemDescription: form.itemDescription || undefined,
+          craftingSkill: form.craftingSkill,
+          craftingLevel: form.craftingLevel,
+          quantity: form.quantity,
+          craftingTime: form.craftingTime || undefined,
+          primaryMaterial: form.primaryMaterial || undefined,
+          secondaryMaterial: form.secondaryMaterial || undefined,
+          masterCrafted: form.masterCrafted,
+          extraDetails: Object.keys(extraDetails).length > 0 ? extraDetails : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to submit item");
+      }
+
+      const created = await res.json();
+      setItems((prev) => [...prev, { id: created.id, itemType: created.itemType, itemName: created.itemName, status: created.status }]);
+      setForm({ ...EMPTY_ITEM });
+      setShowForm(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit");
+    }
+    setSubmitting(false);
+  };
+
+  const t = form.itemType;
+  const showMaterials = !!t && t !== "coin_earning";
+  const showMastercraft = ["armor", "weapons", "misc_craft"].includes(t);
+  const showMaterialUnits = ["armor", "weapons", "misc_craft"].includes(t);
+  const showSpell = ["potions", "scrolls", "enchanting"].includes(t);
+  const showElement = ["potions", "scrolls"].includes(t);
+  const showArmorType = t === "armor";
+  const showWeaponType = t === "weapons";
+  const showPoisonous = t === "herbs";
+  const showToxinType = t === "toxins";
+  const showTrapType = t === "traps";
+
+  return (
+    <div className="space-y-3">
+      {/* Existing submissions */}
+      {items.length > 0 && (
+        <div className="space-y-1.5">
+          <label className={labelClass}>Submitted Items</label>
+          {items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between px-3 py-2 bg-gray-800 rounded-lg border border-gray-700">
+              <div>
+                <span className="text-white text-sm">{item.itemName}</span>
+                <span className="text-gray-500 text-xs ml-2">({ITEM_TYPES[item.itemType as ItemType] ?? item.itemType})</span>
+              </div>
+              <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                item.status === "approved" ? "bg-green-900 text-green-300" :
+                item.status === "denied" ? "bg-red-900 text-red-300" :
+                "bg-yellow-900 text-yellow-300"
+              }`}>
+                {item.status}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!readOnly && !showForm && (
+        <button
+          type="button"
+          onClick={() => setShowForm(true)}
+          className="px-4 py-2 rounded-lg bg-amber-800 text-amber-200 hover:bg-amber-700 text-sm border border-amber-700"
+        >
+          + Add Item Submission
+        </button>
+      )}
+
+      {error && (
+        <div className="bg-red-900/30 border border-red-700 rounded-lg p-3 text-red-300 text-sm">{error}</div>
+      )}
+
+      {showForm && !readOnly && (
+        <div className="space-y-3 p-4 bg-gray-800/50 rounded-lg border border-gray-700">
+          <h4 className="text-white font-medium text-sm">New Item Submission</h4>
+
+          {/* Item Type */}
+          <div>
+            <label className={labelClass}>Item Type *</label>
+            <select value={form.itemType} onChange={(e) => updateForm("itemType", e.target.value)} className={inputClass}>
+              <option value="">Select type...</option>
+              {ITEM_TYPE_OPTIONS.map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+
+          {t && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Item Name *</label>
+                  <input type="text" value={form.itemName} onChange={(e) => updateForm("itemName", e.target.value)} className={inputClass} placeholder="Name of the item" />
+                </div>
+                <div>
+                  <label className={labelClass}>Crafting Skill *</label>
+                  <input type="text" value={form.craftingSkill} onChange={(e) => updateForm("craftingSkill", e.target.value)} className={inputClass} placeholder="e.g. Alchemy 5, Weapon Smithing 3" />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Item Description</label>
+                <textarea value={form.itemDescription} onChange={(e) => updateForm("itemDescription", e.target.value)} className={textareaClass} placeholder="Description of what the item is/does" />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelClass}>Skill Level</label>
+                  <input type="number" min={1} max={9} value={form.craftingLevel} onChange={(e) => updateForm("craftingLevel", parseInt(e.target.value) || 1)} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Quantity</label>
+                  <input type="number" min={1} value={form.quantity} onChange={(e) => updateForm("quantity", parseInt(e.target.value) || 1)} className={inputClass} />
+                </div>
+                <div>
+                  <label className={labelClass}>Crafting Time</label>
+                  <input type="text" value={form.craftingTime} onChange={(e) => updateForm("craftingTime", e.target.value)} className={inputClass} placeholder="e.g. 4 of 4 weeks" />
+                </div>
+              </div>
+
+              {showMaterials && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Primary Material</label>
+                    <input type="text" value={form.primaryMaterial} onChange={(e) => updateForm("primaryMaterial", e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Secondary Material</label>
+                    <input type="text" value={form.secondaryMaterial} onChange={(e) => updateForm("secondaryMaterial", e.target.value)} className={inputClass} />
+                  </div>
+                </div>
+              )}
+
+              {/* Type-specific fields */}
+              {showArmorType && (
+                <div>
+                  <label className={labelClass}>Armor Type</label>
+                  <div className="flex gap-2">
+                    {ARMOR_TYPES.map((at) => (
+                      <label key={at} className={`px-3 py-1.5 rounded-lg border cursor-pointer text-sm ${form.armorType === at ? "bg-amber-900/30 border-amber-600 text-amber-300" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+                        <input type="radio" value={at} checked={form.armorType === at} onChange={() => updateForm("armorType", at)} className="sr-only" />
+                        {at}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {showWeaponType && (
+                <div>
+                  <label className={labelClass}>Weapon Type</label>
+                  <input type="text" value={form.weaponType} onChange={(e) => updateForm("weaponType", e.target.value)} className={inputClass} placeholder="e.g. Longsword, Bow, Shield" />
+                </div>
+              )}
+
+              {showSpell && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Spell Name</label>
+                    <input type="text" value={form.spellName} onChange={(e) => updateForm("spellName", e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Spell Level</label>
+                    <input type="number" min={1} max={9} value={form.spellLevel} onChange={(e) => updateForm("spellLevel", parseInt(e.target.value) || 1)} className={inputClass} />
+                  </div>
+                </div>
+              )}
+
+              {showElement && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelClass}>Element</label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {ELEMENTS.map((el) => (
+                        <label key={el} className={`px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${form.element === el ? "bg-amber-600 text-white" : "bg-gray-800 text-gray-400"}`}>
+                          <input type="radio" value={el} checked={form.element === el} onChange={() => updateForm("element", el)} className="sr-only" />
+                          {el}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Energy</label>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {ENERGIES.map((en) => (
+                        <label key={en} className={`px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer ${form.energy === en ? "bg-amber-600 text-white" : "bg-gray-800 text-gray-400"}`}>
+                          <input type="radio" value={en} checked={form.energy === en} onChange={() => updateForm("energy", en)} className="sr-only" />
+                          {en}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {showPoisonous && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.poisonous} onChange={(e) => updateForm("poisonous", e.target.checked)} />
+                  <span className="text-sm text-gray-300">Poisonous Herb</span>
+                </label>
+              )}
+
+              {showToxinType && (
+                <div>
+                  <label className={labelClass}>Toxin Type</label>
+                  <div className="flex gap-2">
+                    {TOXIN_TYPES.map((tt) => (
+                      <label key={tt} className={`px-3 py-1.5 rounded-lg border cursor-pointer text-sm ${form.toxinType === tt ? "bg-amber-900/30 border-amber-600 text-amber-300" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+                        <input type="radio" value={tt} checked={form.toxinType === tt} onChange={() => updateForm("toxinType", tt)} className="sr-only" />
+                        {tt}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {showTrapType && (
+                <div>
+                  <label className={labelClass}>Trap Type</label>
+                  <input type="text" value={form.trapType} onChange={(e) => updateForm("trapType", e.target.value)} className={inputClass} placeholder="Type of trap" />
+                </div>
+              )}
+
+              {showMastercraft && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.masterCrafted} onChange={(e) => updateForm("masterCrafted", e.target.checked)} />
+                  <span className="text-sm text-gray-300">Master Crafted</span>
+                </label>
+              )}
+
+              {showMaterialUnits && (
+                <div>
+                  <label className={labelClass}>Do you have Material Units?</label>
+                  <div className="flex gap-2">
+                    {["Yes", "No", "N/A"].map((opt) => (
+                      <label key={opt} className={`px-3 py-1.5 rounded-lg border cursor-pointer text-sm ${form.hasMaterialUnits === opt ? "bg-amber-900/30 border-amber-600 text-amber-300" : "bg-gray-800 border-gray-700 text-gray-400"}`}>
+                        <input type="radio" value={opt} checked={form.hasMaterialUnits === opt} onChange={() => updateForm("hasMaterialUnits", opt)} className="sr-only" />
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className={labelClass}>Notes for Economy Staff</label>
+                <textarea value={form.notes} onChange={(e) => updateForm("notes", e.target.value)} className={textareaClass} placeholder="Any questions or additional details" />
+              </div>
+
+              <div className="flex gap-2 justify-end">
+                <button type="button" onClick={() => { setShowForm(false); setForm({ ...EMPTY_ITEM }); }} className="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 text-sm">
+                  Cancel
+                </button>
+                <button type="button" onClick={submitItem} disabled={submitting} className="px-4 py-2 rounded-lg bg-green-700 text-white font-medium hover:bg-green-600 disabled:opacity-50 text-sm">
+                  {submitting ? "Submitting..." : "Submit Item"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

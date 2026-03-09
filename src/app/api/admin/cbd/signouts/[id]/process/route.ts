@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessCBD } from "@/lib/roles";
-import { calculateSignOutXP } from "@/lib/economy";
+import { calculateSignOutXP, craftLevelToTier, PROFESSION_RATES, startingBankData } from "@/lib/economy";
 
 // POST: Process or reject a sign-out
 export async function POST(
@@ -90,5 +90,70 @@ export async function POST(
     }),
   ]);
 
-  return NextResponse.json({ ...updatedSignOut, xpAwarded });
+  // Auto-deposit coin earnings if crafting for coin
+  let coinEarnings = 0;
+  if (signOut.betweenEventAction === "crafting" && signOut.betweenEventDetails) {
+    try {
+      const details = typeof signOut.betweenEventDetails === "string"
+        ? JSON.parse(signOut.betweenEventDetails)
+        : signOut.betweenEventDetails;
+
+      if (details.craftingMode === "coin" && details.coinSkill && details.coinSkillLevel) {
+        const tier = craftLevelToTier(details.coinSkillLevel);
+        const isWinter = eventStart.getMonth() >= 10 || eventStart.getMonth() <= 1; // Nov-Feb
+        coinEarnings = isWinter ? PROFESSION_RATES[tier].winter : PROFESSION_RATES[tier].standard;
+
+        // Find or create bank, then deposit
+        let bank = await prisma.playerBank.findUnique({
+          where: { characterId: signOut.characterId },
+        });
+
+        if (!bank) {
+          // Lazy-create bank with starting balance
+          const character = await prisma.character.findUnique({ where: { id: signOut.characterId } });
+          const charData = character?.data ? JSON.parse(character.data as string) : {};
+          const { startingBalance, transactions } = startingBankData(charData.silverSpent ?? 0);
+
+          bank = await prisma.playerBank.create({
+            data: {
+              characterId: signOut.characterId,
+              balance: startingBalance,
+            },
+          });
+
+          // Create starting transactions
+          for (const txn of transactions) {
+            await prisma.bankTransaction.create({
+              data: {
+                bankId: bank.id,
+                type: txn.type,
+                amount: txn.type === "withdrawal" ? -txn.amount : txn.amount,
+                description: txn.description,
+              },
+            });
+          }
+        }
+
+        // Deposit coin earnings
+        await prisma.playerBank.update({
+          where: { id: bank.id },
+          data: { balance: { increment: coinEarnings } },
+        });
+
+        await prisma.bankTransaction.create({
+          data: {
+            bankId: bank.id,
+            type: "profession_earning",
+            amount: coinEarnings,
+            description: `${details.coinSkill} (${tier}) — between-event earnings`,
+            processedBy: session.user.id,
+          },
+        });
+      }
+    } catch {
+      // If parsing fails, skip coin earning — not critical
+    }
+  }
+
+  return NextResponse.json({ ...updatedSignOut, xpAwarded, coinEarnings });
 }

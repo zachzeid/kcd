@@ -3,9 +3,9 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStaff } from "@/lib/roles";
 
-// GET: List item submissions for a character
+// GET: List item submissions for a character (optionally filtered by eventId)
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -14,6 +14,7 @@ export async function GET(
   }
 
   const { id } = await params;
+  const eventId = req.nextUrl.searchParams.get("eventId");
 
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   const staffAccess = user && isStaff(user.role);
@@ -28,7 +29,7 @@ export async function GET(
   }
 
   const items = await prisma.itemSubmission.findMany({
-    where: { characterId: id },
+    where: { characterId: id, ...(eventId ? { eventId } : {}) },
     orderBy: { createdAt: "desc" },
   });
 
