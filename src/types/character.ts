@@ -57,12 +57,16 @@ export interface PurchasedSkill {
   specialization?: string;
   purchaseCount: number;
   totalCost: number;
+  acquiredAt?: string; // ISO date string — when the skill was learned
+  reason?: string; // e.g. "Learned from Marcus at Winter's Tale 2026"
 }
 
 export interface PurchasedEquipment {
   itemName: string;
   quantity: number;
   totalCost: number;
+  acquiredAt?: string; // ISO date string — when the item was acquired
+  reason?: string; // e.g. "Starting equipment" or "Purchased at Spring Awakening"
 }
 
 export interface Character {

@@ -20,8 +20,8 @@ interface CharacterData {
   history: string;
   skillPointsSpent: number;
   silverSpent: number;
-  skills: { skillName: string; purchaseCount: number; totalCost: number }[];
-  equipment: { itemName: string; quantity: number; totalCost: number }[];
+  skills: { skillName: string; specialization?: string; purchaseCount: number; totalCost: number; acquiredAt?: string; reason?: string }[];
+  equipment: { itemName: string; quantity: number; totalCost: number; acquiredAt?: string; reason?: string }[];
 }
 
 interface BankTransaction {
@@ -306,17 +306,27 @@ export default function CharacterSummaryPage() {
                     <th className="text-left py-2 px-3">Skill</th>
                     <th className="text-center py-2 px-3">Purchases</th>
                     <th className="text-right py-2 px-3">Cost</th>
+                    <th className="text-left py-2 px-3">Acquired</th>
+                    <th className="text-left py-2 px-3">Reason</th>
                   </tr>
                 </thead>
                 <tbody>
                   {d.skills.map((s) => (
-                    <tr key={s.skillName} className="border-b border-gray-800">
-                      <td className="py-1.5 px-3 text-white">{s.skillName}</td>
+                    <tr key={s.skillName + (s.specialization || "")} className="border-b border-gray-800">
+                      <td className="py-1.5 px-3 text-white">
+                        {s.skillName}{s.specialization ? ` (${s.specialization})` : ""}
+                      </td>
                       <td className="py-1.5 px-3 text-center text-gray-400">
                         {s.purchaseCount}
                       </td>
                       <td className="py-1.5 px-3 text-right text-gray-400">
                         {s.totalCost}p
+                      </td>
+                      <td className="py-1.5 px-3 text-gray-500 text-xs">
+                        {s.acquiredAt ? new Date(s.acquiredAt).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="py-1.5 px-3 text-gray-500 text-xs">
+                        {s.reason || "—"}
                       </td>
                     </tr>
                   ))}
@@ -341,6 +351,8 @@ export default function CharacterSummaryPage() {
                     <th className="text-left py-2 px-3">Item</th>
                     <th className="text-center py-2 px-3">Qty</th>
                     <th className="text-right py-2 px-3">Cost</th>
+                    <th className="text-left py-2 px-3">Acquired</th>
+                    <th className="text-left py-2 px-3">Reason</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -352,6 +364,12 @@ export default function CharacterSummaryPage() {
                       </td>
                       <td className="py-1.5 px-3 text-right text-gray-400">
                         {e.totalCost} Ag
+                      </td>
+                      <td className="py-1.5 px-3 text-gray-500 text-xs">
+                        {e.acquiredAt ? new Date(e.acquiredAt).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="py-1.5 px-3 text-gray-500 text-xs">
+                        {e.reason || "—"}
                       </td>
                     </tr>
                   ))}
