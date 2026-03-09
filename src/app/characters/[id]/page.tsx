@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/character-status";
+import { CHARACTER_STATUSES, INACTIVE_LABEL, type CharacterStatus } from "@/lib/character-status";
+import { ITEM_TYPES } from "@/lib/economy";
 
 function formatSilver(copper: number): string {
   const silver = copper / 100;
@@ -53,6 +54,7 @@ interface CharacterResponse {
   id: string;
   name: string;
   status: CharacterStatus;
+  inactive: boolean;
   reviewNotes: string | null;
   data: CharacterData;
   userName?: string;
@@ -76,6 +78,54 @@ interface CharacterHistory {
   eventHistory: EventHistory[];
 }
 
+interface TagItem {
+  id: string;
+  itemType: string;
+  itemName: string;
+  itemDescription: string | null;
+  craftingSkill: string;
+  craftingLevel: number;
+  quantity: number;
+  primaryMaterial: string | null;
+  secondaryMaterial: string | null;
+  masterCrafted: boolean;
+  status: string;
+  createdAt: string;
+}
+
+function CollapsibleSection({
+  title,
+  defaultOpen = true,
+  count,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section>
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2 hover:text-amber-400 transition-colors"
+      >
+        <span>
+          {title}
+          {count !== undefined && (
+            <span className="text-gray-600 text-sm font-normal ml-2">({count})</span>
+          )}
+        </span>
+        <span className={`text-gray-500 text-sm transition-transform ${open ? "rotate-180" : ""}`}>
+          &#9660;
+        </span>
+      </button>
+      {open && children}
+    </section>
+  );
+}
+
 export default function CharacterSummaryPage() {
   const params = useParams();
   const router = useRouter();
@@ -83,6 +133,7 @@ export default function CharacterSummaryPage() {
   const [history, setHistory] = useState<CharacterHistory | null>(null);
   const [bank, setBank] = useState<BankData | null>(null);
   const [loreMentions, setLoreMentions] = useState<LoreMention[]>([]);
+  const [tags, setTags] = useState<TagItem[]>([]);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -97,11 +148,15 @@ export default function CharacterSummaryPage() {
       fetch(`/api/characters/${params.id}/bank`).then((r) =>
         r.ok ? r.json() : null
       ),
+      fetch(`/api/characters/${params.id}/items`).then((r) =>
+        r.ok ? r.json() : { items: [] }
+      ),
     ])
-      .then(([charData, historyData, bankData]) => {
+      .then(([charData, historyData, bankData, itemsData]) => {
         setCharacter(charData);
         setHistory(historyData);
         setBank(bankData?.bank ?? null);
+        setTags(itemsData?.items ?? []);
         // Fetch lore mentions by character name
         if (charData?.data?.name) {
           fetch(`/api/lore?character=${encodeURIComponent(charData.data.name)}`)
@@ -140,6 +195,14 @@ export default function CharacterSummaryPage() {
   const statusInfo =
     CHARACTER_STATUSES[character.status] ?? CHARACTER_STATUSES.draft;
 
+  // Group tags by itemType
+  const tagsByType: Record<string, TagItem[]> = {};
+  for (const tag of tags) {
+    if (!tagsByType[tag.itemType]) tagsByType[tag.itemType] = [];
+    tagsByType[tag.itemType].push(tag);
+  }
+  const tagTypeKeys = Object.keys(tagsByType).sort();
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
@@ -156,6 +219,11 @@ export default function CharacterSummaryPage() {
             >
               {statusInfo.label}
             </span>
+            {character.inactive && (
+              <span className={`px-2 py-0.5 rounded text-xs font-bold ${INACTIVE_LABEL.color}`}>
+                {INACTIVE_LABEL.label}
+              </span>
+            )}
             <Link
               href={`/print/${character.id}`}
               target="_blank"
@@ -181,6 +249,15 @@ export default function CharacterSummaryPage() {
             {character.userEmail && (
               <span className="text-gray-600"> ({character.userEmail})</span>
             )}
+          </div>
+        )}
+
+        {/* Inactive notice */}
+        {character.inactive && (
+          <div className="p-3 rounded-lg border border-orange-800/50 bg-orange-900/10">
+            <p className="text-orange-300 text-sm">
+              This character has been inactive for over 12 months. Contact CBD staff to reactivate.
+            </p>
           </div>
         )}
 
@@ -220,10 +297,7 @@ export default function CharacterSummaryPage() {
 
         {/* Bank */}
         {bank && (
-          <section>
-            <h2 className="text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2">
-              Bank
-            </h2>
+          <CollapsibleSection title="Bank">
             <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
@@ -240,7 +314,7 @@ export default function CharacterSummaryPage() {
                   onClick={() => setShowAuditLog(!showAuditLog)}
                   className="text-xs text-gray-400 hover:text-white px-3 py-1 rounded bg-gray-800 hover:bg-gray-700"
                 >
-                  {showAuditLog ? "Hide" : "View"} Audit Log
+                  {showAuditLog ? "Hide" : "View"} Transactions
                 </button>
               </div>
               {showAuditLog && (
@@ -288,14 +362,18 @@ export default function CharacterSummaryPage() {
                 </div>
               )}
             </div>
-          </section>
+          </CollapsibleSection>
+        )}
+
+        {/* Tags (Item Submissions) */}
+        {tags.length > 0 && (
+          <CollapsibleSection title="Tags" count={tags.length}>
+            <TagsSection tagsByType={tagsByType} tagTypeKeys={tagTypeKeys} />
+          </CollapsibleSection>
         )}
 
         {/* Skills */}
-        <section>
-          <h2 className="text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2">
-            Skills
-          </h2>
+        <CollapsibleSection title="Skills" count={d.skills.length}>
           {d.skills.length === 0 ? (
             <p className="text-gray-500 text-sm">No skills purchased.</p>
           ) : (
@@ -323,10 +401,10 @@ export default function CharacterSummaryPage() {
                         {s.totalCost}p
                       </td>
                       <td className="py-1.5 px-3 text-gray-500 text-xs">
-                        {s.acquiredAt ? new Date(s.acquiredAt).toLocaleDateString() : "—"}
+                        {s.acquiredAt ? new Date(s.acquiredAt).toLocaleDateString() : "\u2014"}
                       </td>
                       <td className="py-1.5 px-3 text-gray-500 text-xs">
-                        {s.reason || "—"}
+                        {s.reason || "\u2014"}
                       </td>
                     </tr>
                   ))}
@@ -334,13 +412,10 @@ export default function CharacterSummaryPage() {
               </table>
             </div>
           )}
-        </section>
+        </CollapsibleSection>
 
         {/* Equipment */}
-        <section>
-          <h2 className="text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2">
-            Equipment
-          </h2>
+        <CollapsibleSection title="Equipment" count={d.equipment.length}>
           {d.equipment.length === 0 ? (
             <p className="text-gray-500 text-sm">No equipment purchased.</p>
           ) : (
@@ -366,10 +441,10 @@ export default function CharacterSummaryPage() {
                         {e.totalCost} Ag
                       </td>
                       <td className="py-1.5 px-3 text-gray-500 text-xs">
-                        {e.acquiredAt ? new Date(e.acquiredAt).toLocaleDateString() : "—"}
+                        {e.acquiredAt ? new Date(e.acquiredAt).toLocaleDateString() : "\u2014"}
                       </td>
                       <td className="py-1.5 px-3 text-gray-500 text-xs">
-                        {e.reason || "—"}
+                        {e.reason || "\u2014"}
                       </td>
                     </tr>
                   ))}
@@ -377,14 +452,11 @@ export default function CharacterSummaryPage() {
               </table>
             </div>
           )}
-        </section>
+        </CollapsibleSection>
 
         {/* Event History */}
         {history && history.eventsAttended > 0 && (
-          <section>
-            <h2 className="text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2">
-              Event History
-            </h2>
+          <CollapsibleSection title="Event History" count={history.eventsAttended}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
@@ -415,27 +487,21 @@ export default function CharacterSummaryPage() {
                 </tbody>
               </table>
             </div>
-          </section>
+          </CollapsibleSection>
         )}
 
         {/* Character History/Backstory */}
         {d.history && (
-          <section>
-            <h2 className="text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2">
-              Character History
-            </h2>
+          <CollapsibleSection title="Character History">
             <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
               {d.history}
             </p>
-          </section>
+          </CollapsibleSection>
         )}
 
         {/* Mystic Quill Mentions */}
         {loreMentions.length > 0 && (
-          <section>
-            <h2 className="text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2">
-              Mystic Quill Mentions
-            </h2>
+          <CollapsibleSection title="Mystic Quill Mentions" count={loreMentions.length}>
             <div className="space-y-3">
               {loreMentions.map((entry) => (
                 <Link
@@ -459,7 +525,7 @@ export default function CharacterSummaryPage() {
                 </Link>
               ))}
             </div>
-          </section>
+          </CollapsibleSection>
         )}
 
         {/* Metadata */}
@@ -470,6 +536,100 @@ export default function CharacterSummaryPage() {
           </span>
         </div>
       </main>
+    </div>
+  );
+}
+
+function TagsSection({
+  tagsByType,
+  tagTypeKeys,
+}: {
+  tagsByType: Record<string, TagItem[]>;
+  tagTypeKeys: string[];
+}) {
+  const [activeTab, setActiveTab] = useState(tagTypeKeys[0] ?? "");
+
+  const typeLabel = (type: string) =>
+    (ITEM_TYPES as Record<string, string>)[type] ?? type;
+
+  const activeTags = tagsByType[activeTab] ?? [];
+
+  return (
+    <div className="bg-gray-900 rounded-lg border border-gray-800">
+      {/* Tab bar */}
+      <div className="flex gap-1 p-2 border-b border-gray-800 overflow-x-auto">
+        {tagTypeKeys.map((type) => (
+          <button
+            key={type}
+            onClick={() => setActiveTab(type)}
+            className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors ${
+              activeTab === type
+                ? "bg-amber-600 text-white"
+                : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+            }`}
+          >
+            {typeLabel(type)}
+            <span className="ml-1 text-[10px] opacity-70">
+              ({tagsByType[type].length})
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tag items */}
+      <div className="p-3 space-y-2">
+        {activeTags.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center py-4">No tags in this category.</p>
+        ) : (
+          activeTags.map((tag) => (
+            <div
+              key={tag.id}
+              className="flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-950/50"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-sm font-medium truncate">{tag.itemName}</span>
+                  {tag.quantity > 1 && (
+                    <span className="text-gray-500 text-xs">x{tag.quantity}</span>
+                  )}
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                      tag.status === "approved"
+                        ? "bg-green-900 text-green-300"
+                        : tag.status === "denied"
+                          ? "bg-red-900 text-red-300"
+                          : "bg-yellow-900 text-yellow-300"
+                    }`}
+                  >
+                    {tag.status}
+                  </span>
+                  {tag.masterCrafted && (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-900 text-purple-300">
+                      Master
+                    </span>
+                  )}
+                </div>
+                <div className="text-gray-500 text-xs mt-0.5">
+                  {tag.craftingSkill} Lv.{tag.craftingLevel}
+                  {tag.primaryMaterial && <> &middot; {tag.primaryMaterial}</>}
+                  {tag.secondaryMaterial && <> + {tag.secondaryMaterial}</>}
+                  {tag.itemDescription && (
+                    <span className="text-gray-600 ml-2">&mdash; {tag.itemDescription}</span>
+                  )}
+                </div>
+              </div>
+              <a
+                href={`https://k1.gg/${tag.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-3 shrink-0 px-3 py-1.5 rounded text-xs bg-indigo-800 text-indigo-200 hover:bg-indigo-700 transition-colors"
+              >
+                k1.gg/{tag.id.slice(0, 8)}
+              </a>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
