@@ -108,7 +108,7 @@ export async function POST(
       primaryMaterial: primaryMaterial ?? null,
       secondaryMaterial: secondaryMaterial ?? null,
       masterCrafted: masterCrafted ?? false,
-      extraDetails: extraDetails ?? null,
+      extraDetails: extraDetails ? (typeof extraDetails === "string" ? extraDetails : JSON.stringify(extraDetails)) : null,
     },
   });
 

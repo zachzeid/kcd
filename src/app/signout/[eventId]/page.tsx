@@ -10,7 +10,7 @@ import {
   type BetweenEventAction,
 } from "@/lib/economy";
 import { skills as allSkills, skillCategories } from "@/data/skills";
-import { ITEM_TYPES, craftLevelToTier, PROFESSION_RATES } from "@/lib/economy";
+import { ITEM_TYPES, craftLevelToTier, PROFESSION_RATES, CRAFTING_SKILLS, ALL_MATERIALS, WEAPON_TYPES } from "@/lib/economy";
 
 const TRADE_SKILL_NAMES = ["Craft", "Forensics", "Herbalism", "Pick Locks"];
 
@@ -1428,7 +1428,12 @@ function ItemCreationSection({
                 </div>
                 <div>
                   <label className={labelClass}>Crafting Skill *</label>
-                  <input type="text" value={form.craftingSkill} onChange={(e) => updateForm("craftingSkill", e.target.value)} className={inputClass} placeholder="e.g. Alchemy 5, Weapon Smithing 3" />
+                  <select value={form.craftingSkill} onChange={(e) => updateForm("craftingSkill", e.target.value)} className={inputClass}>
+                    <option value="">Select skill...</option>
+                    {CRAFTING_SKILLS.map((skill) => (
+                      <option key={skill} value={skill}>{skill}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1456,11 +1461,21 @@ function ItemCreationSection({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelClass}>Primary Material</label>
-                    <input type="text" value={form.primaryMaterial} onChange={(e) => updateForm("primaryMaterial", e.target.value)} className={inputClass} />
+                    <select value={form.primaryMaterial} onChange={(e) => updateForm("primaryMaterial", e.target.value)} className={inputClass}>
+                      <option value="">Select material...</option>
+                      {ALL_MATERIALS.map((mat) => (
+                        <option key={mat} value={mat}>{mat}</option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className={labelClass}>Secondary Material</label>
-                    <input type="text" value={form.secondaryMaterial} onChange={(e) => updateForm("secondaryMaterial", e.target.value)} className={inputClass} />
+                    <select value={form.secondaryMaterial} onChange={(e) => updateForm("secondaryMaterial", e.target.value)} className={inputClass}>
+                      <option value="">None</option>
+                      {ALL_MATERIALS.map((mat) => (
+                        <option key={mat} value={mat}>{mat}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               )}
@@ -1483,7 +1498,16 @@ function ItemCreationSection({
               {showWeaponType && (
                 <div>
                   <label className={labelClass}>Weapon Type</label>
-                  <input type="text" value={form.weaponType} onChange={(e) => updateForm("weaponType", e.target.value)} className={inputClass} placeholder="e.g. Longsword, Bow, Shield" />
+                  <select value={form.weaponType} onChange={(e) => updateForm("weaponType", e.target.value)} className={inputClass}>
+                    <option value="">Select weapon type...</option>
+                    {Object.entries(WEAPON_TYPES).map(([group, weapons]) => (
+                      <optgroup key={group} label={group}>
+                        {weapons.map((w) => (
+                          <option key={w} value={w}>{w}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
               )}
 

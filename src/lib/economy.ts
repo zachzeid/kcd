@@ -63,6 +63,91 @@ export const ITEM_TYPES = {
 
 export type ItemType = keyof typeof ITEM_TYPES;
 
+/** Skills that can be used for crafting items */
+export const CRAFTING_SKILLS = [
+  // Craft specializations (each is "Craft: <specialization>")
+  "Craft: Armor Smithing",
+  "Craft: Artistry",
+  "Craft: Bookbinding",
+  "Craft: Brewing",
+  "Craft: Carpentry",
+  "Craft: Chandlery",
+  "Craft: Cooking",
+  "Craft: Disguises",
+  "Craft: Glassmaking",
+  "Craft: Leatherworking",
+  "Craft: Masonry",
+  "Craft: Metalsmithing",
+  "Craft: Pottery",
+  "Craft: Siege Smithing",
+  "Craft: Tailoring",
+  "Craft: Weapon Smithing",
+  // Item creation skills
+  "Alchemy",
+  "Herbalism",
+  "Potions",
+  "Scrolls",
+  "Toxins",
+  "Traps",
+  "Enchanting",
+  "Tanning",
+] as const;
+
+/** Crafting materials available in the Kanar system */
+export const CRAFTING_MATERIALS = {
+  metals: ["Iron", "Steel", "Bronze", "Silver", "Gold", "Mithril", "Adamantine", "Cold Iron"],
+  wood: ["Oak", "Ash", "Yew", "Maple", "Ironwood", "Darkwood", "Willow", "Pine"],
+  leather: ["Leather", "Hardened Leather", "Dragonhide", "Wyvern Hide", "Tanned Hide"],
+  fabric: ["Linen", "Silk", "Wool", "Cotton", "Spidersilk"],
+  stone: ["Granite", "Marble", "Obsidian", "Jade", "Crystal"],
+  other: ["Bone", "Horn", "Chitin", "Glass", "Clay", "Wax", "Rope", "Herbs"],
+} as const;
+
+/** Flat list of all materials for dropdowns */
+export const ALL_MATERIALS = [
+  ...CRAFTING_MATERIALS.metals,
+  ...CRAFTING_MATERIALS.wood,
+  ...CRAFTING_MATERIALS.leather,
+  ...CRAFTING_MATERIALS.fabric,
+  ...CRAFTING_MATERIALS.stone,
+  ...CRAFTING_MATERIALS.other,
+] as const;
+
+/** Weapon types that can be crafted */
+export const WEAPON_TYPES = {
+  "One-Handed": [
+    "Dagger",
+    "Club/Mace",
+    "Short Sword",
+    "Longsword",
+    "Hatchet/Hammer",
+    "Hand Axe/Sledge",
+  ],
+  "Two-Handed": [
+    "Great Club",
+    "Pike",
+    "Great Sword",
+    "Long Spear",
+    "Great Axe/Maul",
+    "Poleaxe",
+    "Short Spear",
+    "Bastard Sword",
+    "Hook Axe/Long Hammer",
+    "Staff",
+  ],
+  "Ranged": [
+    "Bow",
+    "Crossbow",
+    "Thrown Rock/Dagger",
+    "Thrown Axe/Hammer",
+    "Javelin",
+  ],
+  "Shields": [
+    "Buckler",
+    "Shield",
+  ],
+} as const;
+
 /** Craft specializations from the rulebook */
 export const CRAFT_SPECIALIZATIONS = [
   "Armor Smithing",
