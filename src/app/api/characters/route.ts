@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canEditOwnCharacters } from "@/lib/roles";
 import { logAudit } from "@/lib/audit";
+import { refreshInactiveForUser } from "@/lib/inactive";
 
 // GET: List current user's characters (with unread audit logs)
 export async function GET() {
@@ -11,6 +12,9 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Refresh inactive flags before returning the list
+  await refreshInactiveForUser(session.user.id);
+
   const characters = await prisma.character.findMany({
     where: { userId: session.user.id },
     orderBy: { updatedAt: "desc" },
@@ -18,6 +22,7 @@ export async function GET() {
       id: true,
       name: true,
       status: true,
+      inactive: true,
       reviewNotes: true,
       reviewedAt: true,
       submittedAt: true,
@@ -80,6 +85,12 @@ export async function POST(req: NextRequest) {
       });
       if (!existing) {
         return NextResponse.json({ error: "Character not found" }, { status: 404 });
+      }
+      if (existing.inactive) {
+        return NextResponse.json(
+          { error: "This character is inactive. Contact CBD staff to reactivate." },
+          { status: 403 }
+        );
       }
       if (!["draft", "rejected"].includes(existing.status)) {
         return NextResponse.json(
@@ -158,6 +169,13 @@ export async function DELETE(req: NextRequest) {
   });
   if (!existing) {
     return NextResponse.json({ error: "Character not found" }, { status: 404 });
+  }
+
+  if (existing.inactive) {
+    return NextResponse.json(
+      { error: "This character is inactive. Contact CBD staff to reactivate." },
+      { status: 403 }
+    );
   }
 
   if (!["draft", "rejected"].includes(existing.status)) {

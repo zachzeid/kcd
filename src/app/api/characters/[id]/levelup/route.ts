@@ -102,10 +102,16 @@ export async function POST(
     return NextResponse.json({ error: "Character not found" }, { status: 404 });
   }
 
+  if (character.inactive) {
+    return NextResponse.json({
+      error: "This character is inactive. Contact CBD staff to reactivate.",
+    }, { status: 403 });
+  }
+
   // Only allow leveling of checked_out or approved characters
   if (!["approved", "checked_out"].includes(character.status)) {
-    return NextResponse.json({ 
-      error: "Character must be approved or checked out to level up" 
+    return NextResponse.json({
+      error: "Character must be approved or checked out to level up"
     }, { status: 403 });
   }
 

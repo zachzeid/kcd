@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CHARACTER_STATUSES, type CharacterStatus } from "@/lib/character-status";
+import { CHARACTER_STATUSES, INACTIVE_LABEL, type CharacterStatus } from "@/lib/character-status";
 
 interface CharRow {
   id: string;
   name: string;
   status: CharacterStatus;
+  inactive: boolean;
   reviewNotes: string | null;
   submittedAt: string | null;
   userName: string;
@@ -120,6 +121,19 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
     if (!confirm("Delete this character?")) return;
     await fetch(`/api/admin/characters?id=${charId}`, { method: "DELETE" });
     setCharacters((prev) => prev.filter((c) => c.id !== charId));
+  };
+
+  const reactivateCharacter = async (charId: string) => {
+    setActionLoading(charId);
+    try {
+      const res = await fetch(`/api/admin/characters/${charId}/reactivate`, { method: "POST" });
+      if (res.ok) {
+        setCharacters((prev) =>
+          prev.map((c) => (c.id === charId ? { ...c, inactive: false } : c))
+        );
+      }
+    } catch { /* ignore */ }
+    setActionLoading(null);
   };
 
   const handleProcess = async (action: "process" | "reject") => {
@@ -377,6 +391,11 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
                     <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusInfo.color}`}>
                       {statusInfo.label}
                     </span>
+                    {char.inactive && (
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${INACTIVE_LABEL.color}`}>
+                        {INACTIVE_LABEL.label}
+                      </span>
+                    )}
                   </div>
                   <div className="text-gray-500 text-sm">
                     Owner: {char.userName} ({char.userEmail})
@@ -386,6 +405,15 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  {char.inactive && (
+                    <button
+                      onClick={() => reactivateCharacter(char.id)}
+                      disabled={actionLoading === char.id}
+                      className="text-xs px-2 py-1 rounded bg-orange-800 text-orange-200 hover:bg-orange-700 disabled:opacity-50"
+                    >
+                      Reactivate
+                    </button>
+                  )}
                   <Link href={`/characters/${char.id}`} className="text-xs text-amber-400 hover:underline">
                     View
                   </Link>

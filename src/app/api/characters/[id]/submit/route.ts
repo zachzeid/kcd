@@ -39,6 +39,13 @@ export async function POST(
     return NextResponse.json({ error: "Character not found" }, { status: 404 });
   }
 
+  if (character.inactive) {
+    return NextResponse.json(
+      { error: "This character is inactive. Contact CBD staff to reactivate." },
+      { status: 403 }
+    );
+  }
+
   if (!["draft", "rejected"].includes(character.status)) {
     return NextResponse.json(
       { error: "Character cannot be submitted in its current status" },

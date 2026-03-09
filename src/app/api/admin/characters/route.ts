@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
       id: c.id,
       name: c.name,
       status: c.status,
+      inactive: c.inactive,
       reviewNotes: c.reviewNotes,
       reviewedBy: c.reviewedBy,
       reviewedAt: c.reviewedAt,

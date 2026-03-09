@@ -8,6 +8,7 @@ export type AuditAction =
   | "rejected"
   | "status_change"
   | "level_up"
+  | "reactivated"
   | "deleted";
 
 interface AuditEntry {

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS Character (
   name TEXT NOT NULL,
   data TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'draft',
+  inactive INTEGER NOT NULL DEFAULT 0,
   reviewNotes TEXT,
   reviewedBy TEXT,
   reviewedAt DATETIME,

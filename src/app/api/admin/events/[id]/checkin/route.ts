@@ -52,17 +52,23 @@ export async function POST(
     // Verify character exists and belongs to user
     if (characterId) {
       const character = await prisma.character.findFirst({
-        where: { 
-          id: characterId, 
+        where: {
+          id: characterId,
           userId: registration.userId,
           status: "approved",
         },
       });
 
       if (!character) {
-        return NextResponse.json({ 
-          error: "Character not found or not approved" 
+        return NextResponse.json({
+          error: "Character not found or not approved"
         }, { status: 404 });
+      }
+
+      if (character.inactive) {
+        return NextResponse.json({
+          error: "This character is inactive (no event activity in 12+ months). CBD must reactivate before check-in.",
+        }, { status: 403 });
       }
 
       // Update character status to checked_in

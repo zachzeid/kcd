@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Race, CharacterClass, Character, PurchasedSkill, PurchasedEquipment } from "@/types/character";
 import { races } from "@/data/races";
-import { CHARACTER_STATUSES, type CharacterStatus, canPlayerEdit, canSubmitForReview } from "@/lib/character-status";
+import { CHARACTER_STATUSES, INACTIVE_LABEL, type CharacterStatus, canPlayerEdit, canSubmitForReview } from "@/lib/character-status";
 import { isStaff, canEditOwnCharacters } from "@/lib/roles";
 import StepIndicator from "@/components/StepIndicator";
 import BasicsStep from "@/components/BasicsStep";
@@ -32,6 +32,7 @@ interface SavedCharEntry {
   id: string;
   name: string;
   status: CharacterStatus;
+  inactive: boolean;
   reviewNotes: string | null;
   submittedAt: string | null;
   createdAt: string;
@@ -353,13 +354,15 @@ export default function Home() {
               <div className="space-y-2">
                 {savedChars.map((c) => {
                   const statusInfo = CHARACTER_STATUSES[c.status] ?? CHARACTER_STATUSES.draft;
-                  const editable = userCanEditOwn && canPlayerEdit(c.status);
-                  const submittable = userCanEditOwn && canSubmitForReview(c.status);
+                  const editable = userCanEditOwn && canPlayerEdit(c.status, c.inactive);
+                  const submittable = userCanEditOwn && canSubmitForReview(c.status, c.inactive);
                   const staffLogs = c.auditLogs?.filter((l) => l.actorRole !== "user") ?? [];
                   return (
                     <div
                       key={c.id}
-                      className="p-4 bg-gray-900 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors"
+                      className={`p-4 bg-gray-900 rounded-lg border transition-colors ${
+                        c.inactive ? "border-orange-800/50" : "border-gray-800 hover:border-gray-700"
+                      }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -367,6 +370,11 @@ export default function Home() {
                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusInfo.color}`}>
                             {statusInfo.label}
                           </span>
+                          {c.inactive && (
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${INACTIVE_LABEL.color}`}>
+                              {INACTIVE_LABEL.label}
+                            </span>
+                          )}
                         </div>
                         <div className="flex gap-2">
                           {(c.status === "approved" || c.status === "checked_in" || c.status === "checked_out") && (
@@ -411,6 +419,11 @@ export default function Home() {
                           )}
                         </div>
                       </div>
+                      {c.inactive && (
+                        <div className="mt-2 p-2 bg-orange-900/20 border border-orange-800 rounded text-orange-300 text-sm">
+                          This character has been inactive for over 12 months. Contact CBD staff to reactivate before registering for events.
+                        </div>
+                      )}
                       {c.status === "rejected" && c.reviewNotes && (
                         <div className="mt-2 p-2 bg-red-900/20 border border-red-800 rounded text-red-300 text-sm">
                           <span className="font-bold">Staff Feedback:</span> {c.reviewNotes}

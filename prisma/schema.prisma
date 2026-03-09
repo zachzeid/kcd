@@ -28,6 +28,7 @@ model Character {
   name           String
   data           String   // JSON blob of full character data
   status         String   @default("draft") // draft, pending_review, approved, rejected, checked_in, checked_out, retired
+  inactive       Boolean  @default(false) // true when no event activity in 12+ months; only CBD can remove
   reviewNotes    String?  // Staff feedback on review
   reviewedBy     String?  // User ID of reviewer
   reviewedAt     DateTime?

@@ -8,14 +8,33 @@ export const CHARACTER_STATUSES = {
   retired: { label: "Retired", color: "bg-gray-800 text-gray-500", description: "Character permanently retired" },
 } as const;
 
+/** Display info for the inactive overlay label */
+export const INACTIVE_LABEL = {
+  label: "Inactive",
+  color: "bg-orange-900 text-orange-300",
+  description: "No event activity in 12+ months — contact staff to reactivate",
+} as const;
+
 export type CharacterStatus = keyof typeof CHARACTER_STATUSES;
 
 /** Statuses where a player can still edit their character */
-export function canPlayerEdit(status: string): boolean {
+export function canPlayerEdit(status: string, inactive?: boolean): boolean {
+  if (inactive) return false;
   return ["draft", "rejected"].includes(status);
 }
 
 /** Statuses where a player can submit for review */
-export function canSubmitForReview(status: string): boolean {
+export function canSubmitForReview(status: string, inactive?: boolean): boolean {
+  if (inactive) return false;
   return ["draft", "rejected"].includes(status);
+}
+
+/** Number of months of inactivity before a character is marked inactive */
+export const INACTIVE_MONTHS = 12;
+
+/** Check if a date is older than INACTIVE_MONTHS from now */
+export function isOlderThanInactiveThreshold(date: Date): boolean {
+  const threshold = new Date();
+  threshold.setMonth(threshold.getMonth() - INACTIVE_MONTHS);
+  return date < threshold;
 }
