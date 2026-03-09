@@ -1,15 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ITEM_TYPES, CRAFTING_SKILLS } from "@/lib/economy";
 
-interface ItemSubmission {
+interface Tag {
   id: string;
+  tagCode: number | null;
   itemType: string;
   itemName: string;
+  itemDescription: string | null;
+  craftingSkill: string;
+  craftingLevel: number;
+  quantity: number;
+  primaryMaterial: string | null;
+  secondaryMaterial: string | null;
+  masterCrafted: boolean;
+  status: string;
+  characterId: string;
   characterName: string;
   playerName: string;
+  tagUrl: string | null;
+  createdAt: string;
+}
+
+interface CharacterOption {
+  id: string;
+  name: string;
+  playerName: string;
   status: string;
-  submittedAt: string;
 }
 
 interface Transaction {
@@ -31,7 +49,7 @@ interface PlayerBank {
   updatedAt: string;
 }
 
-type SubTab = "items" | "banks";
+type SubTab = "tags" | "banks";
 
 function formatSilver(copper: number): string {
   const silver = copper / 100;
@@ -48,29 +66,62 @@ const TRANSACTION_TYPE_LABELS: Record<string, string> = {
   admin_adjustment: "Adjustment",
 };
 
+const ITEM_TYPE_OPTIONS = Object.entries(ITEM_TYPES).filter(
+  ([key]) => key !== "coin_earning"
+);
+
 export default function EconomyDepartment() {
-  const [subTab, setSubTab] = useState<SubTab>("items");
-  const [items, setItems] = useState<ItemSubmission[]>([]);
+  const [subTab, setSubTab] = useState<SubTab>("tags");
+  const [tags, setTags] = useState<Tag[]>([]);
   const [banks, setBanks] = useState<PlayerBank[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedBank, setExpandedBank] = useState<string | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTxns, setLoadingTxns] = useState(false);
 
-  // Add transaction form
+  // Bank transaction form
   const [txnForm, setTxnForm] = useState<{ characterId: string } | null>(null);
   const [txnType, setTxnType] = useState("deposit");
   const [txnAmount, setTxnAmount] = useState("");
   const [txnDesc, setTxnDesc] = useState("");
   const [txnSaving, setTxnSaving] = useState(false);
 
+  // Tag creation form
+  const [showCreateTag, setShowCreateTag] = useState(false);
+  const [characters, setCharacters] = useState<CharacterOption[]>([]);
+  const [charSearch, setCharSearch] = useState("");
+  const [tagForm, setTagForm] = useState({
+    characterId: "",
+    itemType: "",
+    itemName: "",
+    itemDescription: "",
+    craftingSkill: "",
+    craftingLevel: 1,
+    quantity: 1,
+    primaryMaterial: "",
+    secondaryMaterial: "",
+    masterCrafted: false,
+  });
+  const [tagSaving, setTagSaving] = useState(false);
+  const [tagError, setTagError] = useState("");
+
+  // Transfer form
+  const [transferTag, setTransferTag] = useState<Tag | null>(null);
+  const [transferTargetId, setTransferTargetId] = useState("");
+  const [transferSaving, setTransferSaving] = useState(false);
+
+  // Remove confirmation
+  const [removeTag, setRemoveTag] = useState<Tag | null>(null);
+  const [removeReason, setRemoveReason] = useState("");
+  const [removeSaving, setRemoveSaving] = useState(false);
+
   useEffect(() => {
     setLoading(true);
-    if (subTab === "items") {
-      fetch("/api/admin/economy/items")
-        .then((r) => (r.ok ? r.json() : { items: [] }))
-        .then((data) => setItems(data.items ?? []))
-        .catch(() => setItems([]))
+    if (subTab === "tags") {
+      fetch("/api/admin/economy/tags")
+        .then((r) => (r.ok ? r.json() : { tags: [] }))
+        .then((data) => setTags(data.tags ?? []))
+        .catch(() => setTags([]))
         .finally(() => setLoading(false));
     } else if (subTab === "banks") {
       fetch("/api/admin/economy/banks")
@@ -81,6 +132,141 @@ export default function EconomyDepartment() {
     }
   }, [subTab]);
 
+  // Load characters when create/transfer forms open
+  useEffect(() => {
+    if (showCreateTag || transferTag) {
+      fetch("/api/admin/characters")
+        .then((r) => (r.ok ? r.json() : { characters: [] }))
+        .then((data) => {
+          const chars = (data.characters ?? []).map(
+            (c: { id: string; name: string; playerName: string; status: string }) => ({
+              id: c.id,
+              name: c.name,
+              playerName: c.playerName,
+              status: c.status,
+            })
+          );
+          setCharacters(chars);
+        })
+        .catch(() => setCharacters([]));
+    }
+  }, [showCreateTag, transferTag]);
+
+  const filteredCharacters = characters.filter(
+    (c) =>
+      c.name.toLowerCase().includes(charSearch.toLowerCase()) ||
+      c.playerName.toLowerCase().includes(charSearch.toLowerCase())
+  );
+
+  const createTag = async () => {
+    if (!tagForm.characterId || !tagForm.itemType || !tagForm.itemName || !tagForm.craftingSkill) {
+      setTagError("Character, item type, item name, and crafting skill are required");
+      return;
+    }
+    setTagSaving(true);
+    setTagError("");
+    try {
+      const r = await fetch("/api/admin/economy/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterId: tagForm.characterId,
+          itemType: tagForm.itemType,
+          itemName: tagForm.itemName,
+          itemDescription: tagForm.itemDescription || undefined,
+          craftingSkill: tagForm.craftingSkill,
+          craftingLevel: tagForm.craftingLevel,
+          quantity: tagForm.quantity,
+          primaryMaterial: tagForm.primaryMaterial || undefined,
+          secondaryMaterial: tagForm.secondaryMaterial || undefined,
+          masterCrafted: tagForm.masterCrafted,
+        }),
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        throw new Error(data.error || "Failed to create tag");
+      }
+      // Refresh tags list
+      const refreshed = await fetch("/api/admin/economy/tags").then((r) =>
+        r.ok ? r.json() : { tags: [] }
+      );
+      setTags(refreshed.tags ?? []);
+      setShowCreateTag(false);
+      setTagForm({
+        characterId: "",
+        itemType: "",
+        itemName: "",
+        itemDescription: "",
+        craftingSkill: "",
+        craftingLevel: 1,
+        quantity: 1,
+        primaryMaterial: "",
+        secondaryMaterial: "",
+        masterCrafted: false,
+      });
+      setCharSearch("");
+    } catch (err) {
+      setTagError(err instanceof Error ? err.message : "Failed to create tag");
+    } finally {
+      setTagSaving(false);
+    }
+  };
+
+  const doTransfer = async () => {
+    if (!transferTag || !transferTargetId) return;
+    setTransferSaving(true);
+    try {
+      const r = await fetch(`/api/admin/economy/tags/${transferTag.id}/transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetCharacterId: transferTargetId }),
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        throw new Error(data.error || "Transfer failed");
+      }
+      // Refresh
+      const refreshed = await fetch("/api/admin/economy/tags").then((r) =>
+        r.ok ? r.json() : { tags: [] }
+      );
+      setTags(refreshed.tags ?? []);
+      setTransferTag(null);
+      setTransferTargetId("");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Transfer failed");
+    } finally {
+      setTransferSaving(false);
+    }
+  };
+
+  const doRemove = async () => {
+    if (!removeTag) return;
+    setRemoveSaving(true);
+    try {
+      const r = await fetch(`/api/admin/economy/tags/${removeTag.id}/remove`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: removeReason }),
+      });
+      if (!r.ok) {
+        const data = await r.json();
+        throw new Error(data.error || "Remove failed");
+      }
+      // Refresh
+      const refreshed = await fetch("/api/admin/economy/tags").then((r) =>
+        r.ok ? r.json() : { tags: [] }
+      );
+      setTags(refreshed.tags ?? []);
+      setRemoveTag(null);
+      setRemoveReason("");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Remove failed");
+    } finally {
+      setRemoveSaving(false);
+    }
+  };
+
+  // Bank functions
   const loadTransactions = async (characterId: string) => {
     if (expandedBank === characterId) {
       setExpandedBank(null);
@@ -107,7 +293,6 @@ export default function EconomyDepartment() {
     const amountCopper = Math.round(parseFloat(txnAmount) * 100);
     if (!txnAmount || isNaN(amountCopper) || !txnDesc.trim()) return;
 
-    // Withdrawals and expenses are negative
     const signedAmount = ["withdrawal", "skill_training", "starting_equipment"].includes(txnType)
       ? -Math.abs(amountCopper)
       : Math.abs(amountCopper);
@@ -121,7 +306,6 @@ export default function EconomyDepartment() {
       });
       if (r.ok) {
         const result = await r.json();
-        // Update balance in banks list
         setBanks((prev) =>
           prev.map((b) =>
             b.characterId === characterId
@@ -129,9 +313,7 @@ export default function EconomyDepartment() {
               : b
           )
         );
-        // Reload transactions
         await loadTransactions(characterId);
-        // Expand again since loadTransactions toggles
         if (expandedBank !== characterId) {
           setExpandedBank(characterId);
         }
@@ -145,17 +327,22 @@ export default function EconomyDepartment() {
     }
   };
 
-  // Group banks by player
   const banksByPlayer = banks.reduce<Record<string, PlayerBank[]>>((acc, bank) => {
     if (!acc[bank.playerName]) acc[bank.playerName] = [];
     acc[bank.playerName].push(bank);
     return acc;
   }, {});
 
+  const typeLabel = (type: string) =>
+    (ITEM_TYPES as Record<string, string>)[type] ?? type;
+
+  const inputClass =
+    "bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700 w-full";
+
   return (
     <div>
       <div className="flex gap-2 mb-4">
-        {(["items", "banks"] as SubTab[]).map((tab) => (
+        {(["tags", "banks"] as SubTab[]).map((tab) => (
           <button
             key={tab}
             onClick={() => setSubTab(tab)}
@@ -165,247 +352,611 @@ export default function EconomyDepartment() {
                 : "bg-gray-800 text-gray-400 hover:bg-gray-700"
             }`}
           >
-            {tab === "items" ? "Item Submissions" : "Player Banks"}
+            {tab === "tags" ? "Tags" : "Player Banks"}
           </button>
         ))}
       </div>
 
       {loading ? (
         <div className="text-gray-500 text-center py-8">Loading...</div>
-      ) : subTab === "items" ? (
-        <ItemsView items={items} />
-      ) : subTab === "banks" ? (
+      ) : subTab === "tags" ? (
         <div className="space-y-4">
-          {Object.keys(banksByPlayer).length === 0 ? (
+          {/* Create tag button */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShowCreateTag(!showCreateTag)}
+              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-500"
+            >
+              {showCreateTag ? "Cancel" : "+ Create Tag"}
+            </button>
+          </div>
+
+          {/* Create tag form */}
+          {showCreateTag && (
+            <div className="bg-gray-900/50 rounded-lg border border-gray-800 p-4 space-y-3">
+              <h3 className="text-white font-medium text-sm">Create New Tag</h3>
+
+              {tagError && (
+                <div className="bg-red-900/30 border border-red-700 rounded p-2 text-red-300 text-xs">
+                  {tagError}
+                </div>
+              )}
+
+              {/* Character search */}
+              <div>
+                <label className="text-gray-400 text-xs block mb-1">Assign to Character *</label>
+                <input
+                  type="text"
+                  placeholder="Search by character or player name..."
+                  value={charSearch}
+                  onChange={(e) => setCharSearch(e.target.value)}
+                  className={inputClass}
+                />
+                {charSearch && (
+                  <div className="mt-1 max-h-32 overflow-y-auto bg-gray-800 border border-gray-700 rounded">
+                    {filteredCharacters.length === 0 ? (
+                      <div className="px-2 py-1.5 text-gray-500 text-xs">No matches</div>
+                    ) : (
+                      filteredCharacters.slice(0, 10).map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setTagForm((prev) => ({ ...prev, characterId: c.id }));
+                            setCharSearch(`${c.name} (${c.playerName})`);
+                          }}
+                          className={`w-full text-left px-2 py-1.5 text-xs hover:bg-gray-700 ${
+                            tagForm.characterId === c.id
+                              ? "bg-amber-900/30 text-amber-300"
+                              : "text-gray-300"
+                          }`}
+                        >
+                          {c.name}{" "}
+                          <span className="text-gray-500">— {c.playerName}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+                {tagForm.characterId && !charSearch.includes("(") && (
+                  <div className="text-amber-400 text-xs mt-1">
+                    Selected: {characters.find((c) => c.id === tagForm.characterId)?.name}
+                  </div>
+                )}
+              </div>
+
+              {/* Item details */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Item Type *</label>
+                  <select
+                    value={tagForm.itemType}
+                    onChange={(e) => setTagForm((prev) => ({ ...prev, itemType: e.target.value }))}
+                    className={inputClass}
+                  >
+                    <option value="">Select type...</option>
+                    {ITEM_TYPE_OPTIONS.map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Item Name *</label>
+                  <input
+                    type="text"
+                    value={tagForm.itemName}
+                    onChange={(e) => setTagForm((prev) => ({ ...prev, itemName: e.target.value }))}
+                    className={inputClass}
+                    placeholder="Name of the item"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Crafting Skill *</label>
+                  <select
+                    value={tagForm.craftingSkill}
+                    onChange={(e) =>
+                      setTagForm((prev) => ({ ...prev, craftingSkill: e.target.value }))
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">Select skill...</option>
+                    {CRAFTING_SKILLS.map((skill) => (
+                      <option key={skill} value={skill}>
+                        {skill}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Level</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="9"
+                    value={tagForm.craftingLevel}
+                    onChange={(e) =>
+                      setTagForm((prev) => ({
+                        ...prev,
+                        craftingLevel: parseInt(e.target.value) || 1,
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={tagForm.quantity}
+                    onChange={(e) =>
+                      setTagForm((prev) => ({
+                        ...prev,
+                        quantity: parseInt(e.target.value) || 1,
+                      }))
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Primary Material</label>
+                  <input
+                    type="text"
+                    value={tagForm.primaryMaterial}
+                    onChange={(e) =>
+                      setTagForm((prev) => ({ ...prev, primaryMaterial: e.target.value }))
+                    }
+                    className={inputClass}
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <label className="text-gray-400 text-xs block mb-1">Secondary Material</label>
+                  <input
+                    type="text"
+                    value={tagForm.secondaryMaterial}
+                    onChange={(e) =>
+                      setTagForm((prev) => ({ ...prev, secondaryMaterial: e.target.value }))
+                    }
+                    className={inputClass}
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-gray-400 text-xs block mb-1">Description</label>
+                <input
+                  type="text"
+                  value={tagForm.itemDescription}
+                  onChange={(e) =>
+                    setTagForm((prev) => ({ ...prev, itemDescription: e.target.value }))
+                  }
+                  className={inputClass}
+                  placeholder="Optional description"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-gray-300 text-xs">
+                <input
+                  type="checkbox"
+                  checked={tagForm.masterCrafted}
+                  onChange={(e) =>
+                    setTagForm((prev) => ({ ...prev, masterCrafted: e.target.checked }))
+                  }
+                />
+                Master Crafted
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowCreateTag(false)}
+                  className="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={createTag}
+                  disabled={tagSaving}
+                  className="px-3 py-1.5 rounded text-xs bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50"
+                >
+                  {tagSaving ? "Creating..." : "Create Tag"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Transfer modal */}
+          {transferTag && (
+            <div className="bg-blue-900/20 rounded-lg border border-blue-800 p-4 space-y-3">
+              <h3 className="text-white font-medium text-sm">
+                Transfer Tag #{transferTag.tagCode} — {transferTag.itemName}
+              </h3>
+              <p className="text-gray-400 text-xs">
+                Currently held by: {transferTag.characterName} ({transferTag.playerName})
+              </p>
+              <div>
+                <label className="text-gray-400 text-xs block mb-1">Transfer to:</label>
+                <select
+                  value={transferTargetId}
+                  onChange={(e) => setTransferTargetId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Select character...</option>
+                  {characters
+                    .filter((c) => c.id !== transferTag.characterId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} — {c.playerName}
+                      </option>
+                    ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setTransferTag(null); setTransferTargetId(""); }}
+                  className="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={doTransfer}
+                  disabled={transferSaving || !transferTargetId}
+                  className="px-3 py-1.5 rounded text-xs bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-50"
+                >
+                  {transferSaving ? "Transferring..." : "Transfer"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Remove confirmation */}
+          {removeTag && (
+            <div className="bg-red-900/20 rounded-lg border border-red-800 p-4 space-y-3">
+              <h3 className="text-white font-medium text-sm">
+                Remove Tag #{removeTag.tagCode} — {removeTag.itemName}
+              </h3>
+              <p className="text-gray-400 text-xs">
+                This will remove the tag from {removeTag.characterName}. This action is logged.
+              </p>
+              <div>
+                <label className="text-gray-400 text-xs block mb-1">Reason (optional):</label>
+                <input
+                  type="text"
+                  value={removeReason}
+                  onChange={(e) => setRemoveReason(e.target.value)}
+                  className={inputClass}
+                  placeholder="Why is this tag being removed?"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => { setRemoveTag(null); setRemoveReason(""); }}
+                  className="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={doRemove}
+                  disabled={removeSaving}
+                  className="px-3 py-1.5 rounded text-xs bg-red-600 text-white hover:bg-red-500 disabled:opacity-50"
+                >
+                  {removeSaving ? "Removing..." : "Remove Tag"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tags list */}
+          {tags.length === 0 ? (
             <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
-              <p className="text-gray-500">No player banks found.</p>
+              <p className="text-gray-500">No tags created yet.</p>
               <p className="text-gray-600 text-xs mt-2">
-                Banks are created when a character is approved.
+                Use &ldquo;Create Tag&rdquo; to create and assign tags to characters.
               </p>
             </div>
           ) : (
-            Object.entries(banksByPlayer)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([playerName, playerBanks]) => (
-                <div key={playerName} className="bg-gray-900/50 rounded-lg border border-gray-800">
-                  <div className="px-4 py-3 border-b border-gray-800">
-                    <h3 className="text-white font-medium text-sm">{playerName}</h3>
-                    <p className="text-gray-500 text-xs">
-                      {playerBanks.length} character{playerBanks.length !== 1 ? "s" : ""}
-                    </p>
-                  </div>
-                  <div className="divide-y divide-gray-800">
-                    {playerBanks.map((bank) => (
-                      <div key={bank.id}>
-                        <div
-                          className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-800/50"
-                          onClick={() => loadTransactions(bank.characterId)}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-gray-500 border-b border-gray-700">
+                    <th className="text-left py-2 px-3">Tag #</th>
+                    <th className="text-left py-2 px-3">Type</th>
+                    <th className="text-left py-2 px-3">Name</th>
+                    <th className="text-left py-2 px-3">Character</th>
+                    <th className="text-left py-2 px-3">Player</th>
+                    <th className="text-center py-2 px-3">Status</th>
+                    <th className="text-right py-2 px-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tags.map((tag) => (
+                    <tr key={tag.id} className="border-b border-gray-800">
+                      <td className="py-2 px-3 text-amber-400 font-mono text-xs">
+                        {tag.tagCode ? (
+                          <a
+                            href={`/t/${tag.tagCode}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                          >
+                            #{tag.tagCode}
+                          </a>
+                        ) : (
+                          <span className="text-gray-600">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-gray-400 text-xs">{typeLabel(tag.itemType)}</td>
+                      <td className="py-2 px-3 text-white">
+                        {tag.itemName}
+                        {tag.masterCrafted && (
+                          <span className="ml-1 px-1 py-0.5 rounded text-[10px] font-bold bg-purple-900 text-purple-300">
+                            MC
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-gray-300">{tag.characterName}</td>
+                      <td className="py-2 px-3 text-gray-400">{tag.playerName}</td>
+                      <td className="py-2 px-3 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            tag.status === "approved"
+                              ? "bg-green-900 text-green-300"
+                              : tag.status === "removed"
+                                ? "bg-red-900 text-red-300"
+                                : "bg-yellow-900 text-yellow-300"
+                          }`}
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="text-gray-300">{bank.characterName}</span>
-                            <span
-                              className={`font-bold text-sm ${
-                                bank.balance < 0 ? "text-red-400" : "text-amber-400"
-                              }`}
-                            >
-                              {bank.balanceFormatted || formatSilver(bank.balance)}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
+                          {tag.status}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        {tag.status === "approved" && (
+                          <div className="flex gap-1 justify-end">
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setTxnForm(
-                                  txnForm?.characterId === bank.characterId
-                                    ? null
-                                    : { characterId: bank.characterId }
-                                );
-                              }}
-                              className="px-2 py-1 rounded text-xs bg-amber-800 text-amber-200 hover:bg-amber-700"
+                              onClick={() => setTransferTag(tag)}
+                              className="px-2 py-0.5 rounded text-xs bg-blue-800 text-blue-300 hover:bg-blue-700"
                             >
-                              + Transaction
+                              Transfer
                             </button>
-                            <span className="text-gray-600 text-xs">
-                              {expandedBank === bank.characterId ? "▲" : "▼"}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Add transaction form */}
-                        {txnForm?.characterId === bank.characterId && (
-                          <div className="px-4 py-3 bg-gray-800/30 border-t border-gray-800">
-                            <div className="grid grid-cols-3 gap-2 mb-2">
-                              <select
-                                value={txnType}
-                                onChange={(e) => setTxnType(e.target.value)}
-                                className="bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700"
-                              >
-                                <option value="deposit">Deposit</option>
-                                <option value="withdrawal">Withdrawal</option>
-                                <option value="profession_earning">Profession Earning</option>
-                                <option value="skill_training">Skill Training</option>
-                                <option value="admin_adjustment">Adjustment</option>
-                              </select>
-                              <input
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                placeholder="Amount (silver)"
-                                value={txnAmount}
-                                onChange={(e) => setTxnAmount(e.target.value)}
-                                className="bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Reason (e.g. Carpentry II for the Barony)"
-                                value={txnDesc}
-                                onChange={(e) => setTxnDesc(e.target.value)}
-                                className="bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700"
-                              />
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => setTxnForm(null)}
-                                className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => submitTransaction(bank.characterId)}
-                                disabled={txnSaving || !txnAmount || !txnDesc.trim()}
-                                className="px-3 py-1 rounded text-xs bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50"
-                              >
-                                {txnSaving ? "Saving..." : "Add"}
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => setRemoveTag(tag)}
+                              className="px-2 py-0.5 rounded text-xs bg-red-800 text-red-300 hover:bg-red-700"
+                            >
+                              Remove
+                            </button>
                           </div>
                         )}
-
-                        {/* Transaction history */}
-                        {expandedBank === bank.characterId && (
-                          <div className="px-4 py-3 bg-gray-950/50 border-t border-gray-800">
-                            {loadingTxns ? (
-                              <div className="text-gray-500 text-xs text-center py-2">
-                                Loading transactions...
-                              </div>
-                            ) : transactions.length === 0 ? (
-                              <div className="text-gray-600 text-xs text-center py-2">
-                                No transactions yet.
-                              </div>
-                            ) : (
-                              <table className="w-full text-xs">
-                                <thead>
-                                  <tr className="text-gray-500 border-b border-gray-800">
-                                    <th className="text-left py-1.5 pr-2">Date</th>
-                                    <th className="text-left py-1.5 pr-2">Type</th>
-                                    <th className="text-left py-1.5 pr-2">Description</th>
-                                    <th className="text-right py-1.5">Amount</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {transactions.map((txn) => (
-                                    <tr key={txn.id} className="border-b border-gray-800/50">
-                                      <td className="py-1.5 pr-2 text-gray-500">
-                                        {new Date(txn.createdAt).toLocaleDateString()}
-                                      </td>
-                                      <td className="py-1.5 pr-2 text-gray-400">
-                                        {TRANSACTION_TYPE_LABELS[txn.type] ?? txn.type}
-                                      </td>
-                                      <td className="py-1.5 pr-2 text-gray-300">
-                                        {txn.description}
-                                      </td>
-                                      <td
-                                        className={`py-1.5 text-right font-medium ${
-                                          txn.amount >= 0 ? "text-green-400" : "text-red-400"
-                                        }`}
-                                      >
-                                        {txn.amount >= 0 ? "+" : ""}
-                                        {formatSilver(txn.amount)}
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
+      ) : subTab === "banks" ? (
+        <BanksView
+          banksByPlayer={banksByPlayer}
+          expandedBank={expandedBank}
+          loadTransactions={loadTransactions}
+          loadingTxns={loadingTxns}
+          transactions={transactions}
+          txnForm={txnForm}
+          setTxnForm={setTxnForm}
+          txnType={txnType}
+          setTxnType={setTxnType}
+          txnAmount={txnAmount}
+          setTxnAmount={setTxnAmount}
+          txnDesc={txnDesc}
+          setTxnDesc={setTxnDesc}
+          txnSaving={txnSaving}
+          submitTransaction={submitTransaction}
+        />
       ) : null}
     </div>
   );
 }
 
-function ItemsView({ items }: { items: ItemSubmission[] }) {
-  if (items.length === 0) {
+function BanksView({
+  banksByPlayer,
+  expandedBank,
+  loadTransactions,
+  loadingTxns,
+  transactions,
+  txnForm,
+  setTxnForm,
+  txnType,
+  setTxnType,
+  txnAmount,
+  setTxnAmount,
+  txnDesc,
+  setTxnDesc,
+  txnSaving,
+  submitTransaction,
+}: {
+  banksByPlayer: Record<string, PlayerBank[]>;
+  expandedBank: string | null;
+  loadTransactions: (id: string) => Promise<void>;
+  loadingTxns: boolean;
+  transactions: Transaction[];
+  txnForm: { characterId: string } | null;
+  setTxnForm: (v: { characterId: string } | null) => void;
+  txnType: string;
+  setTxnType: (v: string) => void;
+  txnAmount: string;
+  setTxnAmount: (v: string) => void;
+  txnDesc: string;
+  setTxnDesc: (v: string) => void;
+  txnSaving: boolean;
+  submitTransaction: (id: string) => Promise<void>;
+}) {
+  if (Object.keys(banksByPlayer).length === 0) {
     return (
       <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
-        <p className="text-gray-500">No pending item submissions.</p>
+        <p className="text-gray-500">No player banks found.</p>
         <p className="text-gray-600 text-xs mt-2">
-          Item submissions from players will appear here for approval.
+          Banks are created when a character is approved.
         </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-gray-500 border-b border-gray-700">
-            <th className="text-left py-2 px-3">Item Type</th>
-            <th className="text-left py-2 px-3">Item Name</th>
-            <th className="text-left py-2 px-3">Character</th>
-            <th className="text-left py-2 px-3">Player</th>
-            <th className="text-center py-2 px-3">Status</th>
-            <th className="text-left py-2 px-3">Submitted</th>
-            <th className="text-right py-2 px-3">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.id} className="border-b border-gray-800">
-              <td className="py-2 px-3 text-gray-400">{item.itemType}</td>
-              <td className="py-2 px-3 text-white">{item.itemName}</td>
-              <td className="py-2 px-3 text-gray-300">{item.characterName}</td>
-              <td className="py-2 px-3 text-gray-400">{item.playerName}</td>
-              <td className="py-2 px-3 text-center">
-                <span
-                  className={`px-2 py-0.5 rounded text-xs font-bold ${
-                    item.status === "approved"
-                      ? "bg-green-900 text-green-300"
-                      : item.status === "denied"
-                        ? "bg-red-900 text-red-300"
-                        : "bg-yellow-900 text-yellow-300"
-                  }`}
-                >
-                  {item.status}
-                </span>
-              </td>
-              <td className="py-2 px-3 text-gray-500 text-xs">
-                {new Date(item.submittedAt).toLocaleString()}
-              </td>
-              <td className="py-2 px-3 text-right">
-                {item.status === "pending" && (
-                  <div className="flex gap-1 justify-end">
-                    <button className="px-2 py-0.5 rounded text-xs bg-green-800 text-green-300 hover:bg-green-700">
-                      Approve
-                    </button>
-                    <button className="px-2 py-0.5 rounded text-xs bg-red-800 text-red-300 hover:bg-red-700">
-                      Deny
-                    </button>
+    <div className="space-y-4">
+      {Object.entries(banksByPlayer)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([playerName, playerBanks]) => (
+          <div key={playerName} className="bg-gray-900/50 rounded-lg border border-gray-800">
+            <div className="px-4 py-3 border-b border-gray-800">
+              <h3 className="text-white font-medium text-sm">{playerName}</h3>
+              <p className="text-gray-500 text-xs">
+                {playerBanks.length} character{playerBanks.length !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <div className="divide-y divide-gray-800">
+              {playerBanks.map((bank) => (
+                <div key={bank.id}>
+                  <div
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-800/50"
+                    onClick={() => loadTransactions(bank.characterId)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-300">{bank.characterName}</span>
+                      <span
+                        className={`font-bold text-sm ${
+                          bank.balance < 0 ? "text-red-400" : "text-amber-400"
+                        }`}
+                      >
+                        {bank.balanceFormatted || formatSilver(bank.balance)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTxnForm(
+                            txnForm?.characterId === bank.characterId
+                              ? null
+                              : { characterId: bank.characterId }
+                          );
+                        }}
+                        className="px-2 py-1 rounded text-xs bg-amber-800 text-amber-200 hover:bg-amber-700"
+                      >
+                        + Transaction
+                      </button>
+                      <span className="text-gray-600 text-xs">
+                        {expandedBank === bank.characterId ? "▲" : "▼"}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+
+                  {txnForm?.characterId === bank.characterId && (
+                    <div className="px-4 py-3 bg-gray-800/30 border-t border-gray-800">
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        <select
+                          value={txnType}
+                          onChange={(e) => setTxnType(e.target.value)}
+                          className="bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700"
+                        >
+                          <option value="deposit">Deposit</option>
+                          <option value="withdrawal">Withdrawal</option>
+                          <option value="profession_earning">Profession Earning</option>
+                          <option value="skill_training">Skill Training</option>
+                          <option value="admin_adjustment">Adjustment</option>
+                        </select>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="Amount (silver)"
+                          value={txnAmount}
+                          onChange={(e) => setTxnAmount(e.target.value)}
+                          className="bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Reason"
+                          value={txnDesc}
+                          onChange={(e) => setTxnDesc(e.target.value)}
+                          className="bg-gray-800 text-white text-xs rounded px-2 py-1.5 border border-gray-700"
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => setTxnForm(null)}
+                          className="px-3 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => submitTransaction(bank.characterId)}
+                          disabled={txnSaving || !txnAmount || !txnDesc.trim()}
+                          className="px-3 py-1 rounded text-xs bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50"
+                        >
+                          {txnSaving ? "Saving..." : "Add"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {expandedBank === bank.characterId && (
+                    <div className="px-4 py-3 bg-gray-950/50 border-t border-gray-800">
+                      {loadingTxns ? (
+                        <div className="text-gray-500 text-xs text-center py-2">
+                          Loading transactions...
+                        </div>
+                      ) : transactions.length === 0 ? (
+                        <div className="text-gray-600 text-xs text-center py-2">
+                          No transactions yet.
+                        </div>
+                      ) : (
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="text-gray-500 border-b border-gray-800">
+                              <th className="text-left py-1.5 pr-2">Date</th>
+                              <th className="text-left py-1.5 pr-2">Type</th>
+                              <th className="text-left py-1.5 pr-2">Description</th>
+                              <th className="text-right py-1.5">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {transactions.map((txn) => (
+                              <tr key={txn.id} className="border-b border-gray-800/50">
+                                <td className="py-1.5 pr-2 text-gray-500">
+                                  {new Date(txn.createdAt).toLocaleDateString()}
+                                </td>
+                                <td className="py-1.5 pr-2 text-gray-400">
+                                  {TRANSACTION_TYPE_LABELS[txn.type] ?? txn.type}
+                                </td>
+                                <td className="py-1.5 pr-2 text-gray-300">{txn.description}</td>
+                                <td
+                                  className={`py-1.5 text-right font-medium ${
+                                    txn.amount >= 0 ? "text-green-400" : "text-red-400"
+                                  }`}
+                                >
+                                  {txn.amount >= 0 ? "+" : ""}
+                                  {formatSilver(txn.amount)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
     </div>
   );
 }

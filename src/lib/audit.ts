@@ -14,7 +14,10 @@ export type AuditAction =
   | "checked_in"
   | "checked_out"
   | "signout_submitted"
-  | "signout_processed";
+  | "signout_processed"
+  | "tag_created"
+  | "tag_transferred"
+  | "tag_removed";
 
 interface AuditEntry {
   characterId: string;
