@@ -497,12 +497,12 @@ export default function Home() {
                             </button>
                           )}
                           {!editable && c.status !== "pending_review" && (
-                            <button
-                              onClick={() => loadCharacter(c.id)}
+                            <Link
+                              href={`/characters/${c.id}`}
                               className="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
                             >
                               View
-                            </button>
+                            </Link>
                           )}
                           {canLevel && (
                             <button

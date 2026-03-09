@@ -38,6 +38,17 @@ interface BankData {
   transactions: BankTransaction[];
 }
 
+interface LoreMention {
+  id: string;
+  title: string;
+  summary: string;
+  source: string;
+  sourceUrl: string | null;
+  date: string | null;
+  year: number | null;
+  category: string;
+}
+
 interface CharacterResponse {
   id: string;
   name: string;
@@ -71,6 +82,7 @@ export default function CharacterSummaryPage() {
   const [character, setCharacter] = useState<CharacterResponse | null>(null);
   const [history, setHistory] = useState<CharacterHistory | null>(null);
   const [bank, setBank] = useState<BankData | null>(null);
+  const [loreMentions, setLoreMentions] = useState<LoreMention[]>([]);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -90,6 +102,13 @@ export default function CharacterSummaryPage() {
         setCharacter(charData);
         setHistory(historyData);
         setBank(bankData?.bank ?? null);
+        // Fetch lore mentions by character name
+        if (charData?.data?.name) {
+          fetch(`/api/lore?character=${encodeURIComponent(charData.data.name)}`)
+            .then((r) => (r.ok ? r.json() : { entries: [] }))
+            .then((data) => setLoreMentions(data.entries ?? []))
+            .catch(() => setLoreMentions([]));
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -391,6 +410,38 @@ export default function CharacterSummaryPage() {
             <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
               {d.history}
             </p>
+          </section>
+        )}
+
+        {/* Mystic Quill Mentions */}
+        {loreMentions.length > 0 && (
+          <section>
+            <h2 className="text-lg font-bold text-amber-500 mb-3 border-b border-gray-800 pb-2">
+              Mystic Quill Mentions
+            </h2>
+            <div className="space-y-3">
+              {loreMentions.map((entry) => (
+                <Link
+                  key={entry.id}
+                  href={entry.sourceUrl ?? `/compendium?q=${encodeURIComponent(entry.title)}`}
+                  target={entry.sourceUrl ? "_blank" : undefined}
+                  className="block p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-amber-800/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-white font-medium text-sm">
+                      {entry.title}
+                    </span>
+                    <span className="text-gray-500 text-xs">
+                      {entry.source}
+                      {entry.year && ` (${entry.year})`}
+                    </span>
+                  </div>
+                  <p className="text-gray-400 text-xs leading-relaxed">
+                    {entry.summary}
+                  </p>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
