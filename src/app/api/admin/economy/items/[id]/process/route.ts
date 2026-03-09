@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessEconomy } from "@/lib/roles";
+import { assignTagCode } from "@/lib/tag-codes";
+import { getTagUrl, getTagImageUrl } from "@/lib/tag-image";
 
 // POST: Approve or deny an item submission
 export async function POST(
@@ -51,6 +53,16 @@ export async function POST(
       tagIssued: action === "approve",
     },
   });
+
+  // On approval, assign a sequential tag code and return tag URLs
+  if (action === "approve") {
+    const tagCode = await assignTagCode(id);
+    return NextResponse.json({
+      item: { ...updated, tagCode },
+      tagUrl: getTagUrl(tagCode),
+      tagImageUrl: getTagImageUrl(tagCode),
+    });
+  }
 
   return NextResponse.json({ item: updated });
 }

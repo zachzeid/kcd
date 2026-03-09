@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
     submittedAt: item.createdAt.toISOString(),
     processedBy: item.processedBy,
     processNotes: item.processNotes,
+    tagCode: item.tagCode,
   }));
 
   return NextResponse.json({ items });

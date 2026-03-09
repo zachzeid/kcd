@@ -220,6 +220,8 @@ model ItemSubmission {
   processedAt      DateTime?
   processNotes     String?
   tagIssued        Boolean  @default(false)
+  tagCode          Int?     @unique // Sequential tag number, assigned on approval
+  tagImageUrl      String?  // Path/URL to generated tag image
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

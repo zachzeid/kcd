@@ -28,10 +28,26 @@ export async function GET(
     return NextResponse.json({ error: "Character not found" }, { status: 404 });
   }
 
-  const items = await prisma.itemSubmission.findMany({
+  const rawItems = await prisma.itemSubmission.findMany({
     where: { characterId: id, ...(eventId ? { eventId } : {}) },
     orderBy: { createdAt: "desc" },
   });
+
+  const items = rawItems.map((item) => ({
+    id: item.id,
+    itemType: item.itemType,
+    itemName: item.itemName,
+    itemDescription: item.itemDescription,
+    craftingSkill: item.craftingSkill,
+    craftingLevel: item.craftingLevel,
+    quantity: item.quantity,
+    primaryMaterial: item.primaryMaterial,
+    secondaryMaterial: item.secondaryMaterial,
+    masterCrafted: item.masterCrafted,
+    status: item.status,
+    tagCode: item.tagCode,
+    createdAt: item.createdAt.toISOString(),
+  }));
 
   return NextResponse.json({ items });
 }

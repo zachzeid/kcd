@@ -90,6 +90,7 @@ interface TagItem {
   secondaryMaterial: string | null;
   masterCrafted: boolean;
   status: string;
+  tagCode: number | null;
   createdAt: string;
 }
 
@@ -618,14 +619,20 @@ function TagsSection({
                   )}
                 </div>
               </div>
-              <a
-                href={`https://k1.gg/${tag.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="ml-3 shrink-0 px-3 py-1.5 rounded text-xs bg-indigo-800 text-indigo-200 hover:bg-indigo-700 transition-colors"
-              >
-                k1.gg/{tag.id.slice(0, 8)}
-              </a>
+              {tag.tagCode ? (
+                <a
+                  href={`/t/${tag.tagCode}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-3 shrink-0 px-3 py-1.5 rounded text-xs bg-indigo-800 text-indigo-200 hover:bg-indigo-700 transition-colors"
+                >
+                  Tag #{tag.tagCode}
+                </a>
+              ) : (
+                <span className="ml-3 shrink-0 px-3 py-1.5 rounded text-xs bg-gray-800 text-gray-500">
+                  No tag
+                </span>
+              )}
             </div>
           ))
         )}
