@@ -219,3 +219,78 @@ CREATE TABLE IF NOT EXISTS BankTransaction (
 );
 
 CREATE INDEX IF NOT EXISTS BankTransaction_bankId_idx ON BankTransaction(bankId);
+
+-- ─── Encounters ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS Encounter (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  signOutId TEXT,
+  createdBy TEXT NOT NULL,
+  completedAt DATETIME,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS Encounter_status_idx ON Encounter(status);
+CREATE INDEX IF NOT EXISTS Encounter_createdBy_idx ON Encounter(createdBy);
+
+CREATE TABLE IF NOT EXISTS EncounterCharacter (
+  id TEXT PRIMARY KEY,
+  encounterId TEXT NOT NULL,
+  characterId TEXT NOT NULL,
+  notes TEXT,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (encounterId) REFERENCES Encounter(id) ON DELETE CASCADE,
+  UNIQUE(encounterId, characterId)
+);
+
+CREATE INDEX IF NOT EXISTS EncounterCharacter_encounterId_idx ON EncounterCharacter(encounterId);
+
+CREATE TABLE IF NOT EXISTS EncounterEvent (
+  id TEXT PRIMARY KEY,
+  encounterId TEXT NOT NULL,
+  eventId TEXT NOT NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (encounterId) REFERENCES Encounter(id) ON DELETE CASCADE,
+  UNIQUE(encounterId, eventId)
+);
+
+CREATE INDEX IF NOT EXISTS EncounterEvent_encounterId_idx ON EncounterEvent(encounterId);
+
+CREATE TABLE IF NOT EXISTS EncounterNPC (
+  id TEXT PRIMARY KEY,
+  encounterId TEXT NOT NULL,
+  monsterBookId TEXT,
+  customName TEXT,
+  customStats TEXT,
+  notes TEXT,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (encounterId) REFERENCES Encounter(id) ON DELETE CASCADE,
+  FOREIGN KEY (monsterBookId) REFERENCES MonsterBookEntry(id)
+);
+
+CREATE INDEX IF NOT EXISTS EncounterNPC_encounterId_idx ON EncounterNPC(encounterId);
+
+CREATE TABLE IF NOT EXISTS MonsterBookEntry (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT,
+  race TEXT,
+  level INTEGER NOT NULL DEFAULT 1,
+  bodyPoints INTEGER NOT NULL DEFAULT 1,
+  description TEXT,
+  abilities TEXT,
+  resistances TEXT,
+  weaknesses TEXT,
+  loot TEXT,
+  tags TEXT,
+  createdBy TEXT NOT NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS MonsterBookEntry_createdBy_idx ON MonsterBookEntry(createdBy);
+CREATE INDEX IF NOT EXISTS MonsterBookEntry_category_idx ON MonsterBookEntry(category);

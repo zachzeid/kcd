@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import EncountersTab from "./EncountersTab";
+import MonsterBookTab from "./MonsterBookTab";
 
 interface EventRow {
   id: string;
@@ -46,7 +48,7 @@ interface BEARow {
   createdAt: string;
 }
 
-type SubTab = "events" | "bea" | "lore";
+type SubTab = "events" | "bea" | "encounters" | "monsters" | "lore";
 
 export default function GMDepartment() {
   const [subTab, setSubTab] = useState<SubTab>("events");
@@ -77,6 +79,8 @@ export default function GMDepartment() {
   const [respondModal, setRespondModal] = useState<BEARow | null>(null);
   const [respondText, setRespondText] = useState("");
   const [responding, setResponding] = useState(false);
+  const [createEncounter, setCreateEncounter] = useState(false);
+  const [encounterName, setEncounterName] = useState("");
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
@@ -230,6 +234,26 @@ export default function GMDepartment() {
           }`}
         >
           Between-Event Actions
+        </button>
+        <button
+          onClick={() => setSubTab("encounters")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+            subTab === "encounters"
+              ? "bg-amber-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+          }`}
+        >
+          Encounters
+        </button>
+        <button
+          onClick={() => setSubTab("monsters")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+            subTab === "monsters"
+              ? "bg-amber-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+          }`}
+        >
+          Monster Book
         </button>
         <button
           onClick={() => setSubTab("lore")}
@@ -544,6 +568,8 @@ export default function GMDepartment() {
                       onClick={() => {
                         setRespondModal(bea);
                         setRespondText(hasGmResponse ? String(details.gmResponse) : "");
+                        setCreateEncounter(false);
+                        setEncounterName("");
                       }}
                       className={`ml-3 px-3 py-1.5 rounded text-xs shrink-0 ${
                         hasGmResponse
@@ -559,6 +585,10 @@ export default function GMDepartment() {
             })
           )}
         </div>
+      ) : subTab === "encounters" ? (
+        <EncountersTab />
+      ) : subTab === "monsters" ? (
+        <MonsterBookTab />
       ) : (
         <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
           <p className="text-gray-500">Lore Management</p>
@@ -718,6 +748,29 @@ export default function GMDepartment() {
                 className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm focus:border-blue-500 outline-none"
               />
             </div>
+
+            {/* Create Encounter checkbox */}
+            <div className="mt-3 p-3 rounded bg-gray-800 border border-gray-700">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={createEncounter}
+                  onChange={(e) => setCreateEncounter(e.target.checked)}
+                  className="rounded border-gray-600"
+                />
+                <span className="text-sm text-gray-300">Create Encounter from this action</span>
+              </label>
+              {createEncounter && (
+                <input
+                  type="text"
+                  value={encounterName}
+                  onChange={(e) => setEncounterName(e.target.value)}
+                  placeholder="Encounter name (optional)"
+                  className="mt-2 w-full px-3 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                />
+              )}
+            </div>
+
             <div className="flex gap-3 justify-end mt-4">
               <button
                 onClick={() => {
@@ -738,12 +791,22 @@ export default function GMDepartment() {
                       {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ response: respondText.trim() }),
+                        body: JSON.stringify({
+                          response: respondText.trim(),
+                          createEncounter,
+                          encounterName: encounterName.trim() || undefined,
+                        }),
                       }
                     );
                     if (res.ok) {
+                      const data = await res.json();
+                      if (data.encounter) {
+                        alert(`Encounter "${data.encounter.name}" created! View it in the Encounters tab.`);
+                      }
                       setRespondModal(null);
                       setRespondText("");
+                      setCreateEncounter(false);
+                      setEncounterName("");
                       refresh();
                     } else {
                       const err = await res.json();

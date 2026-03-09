@@ -96,6 +96,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           {/* Title */}
           <div
             style={{
+              display: "flex",
               fontSize: Math.round(size * 0.055),
               color: TEXT_COLOR,
               fontWeight: 700,
@@ -105,7 +106,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
             {title}
           </div>
 
-          {/* Decorative divider */}
+          {/* Decorative divider — using ASCII dashes instead of Unicode */}
           <div
             style={{
               display: "flex",
@@ -114,16 +115,17 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
               marginBottom: Math.round(size * 0.01),
             }}
           >
-            <div style={{ width: 60, height: 1, background: SEAL_DARK }} />
-            <div style={{ fontSize: Math.round(size * 0.022), color: SEAL_DARK }}>
-              ✦
+            <div style={{ width: 60, height: 1, background: SEAL_DARK, display: "flex" }} />
+            <div style={{ fontSize: Math.round(size * 0.022), color: SEAL_DARK, display: "flex" }}>
+              ---
             </div>
-            <div style={{ width: 60, height: 1, background: SEAL_DARK }} />
+            <div style={{ width: 60, height: 1, background: SEAL_DARK, display: "flex" }} />
           </div>
 
           {/* Item Name */}
           <div
             style={{
+              display: "flex",
               fontSize: Math.round(size * 0.042),
               color: TEXT_COLOR,
               fontWeight: 600,
@@ -136,6 +138,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           {/* Skill & Level */}
           <div
             style={{
+              display: "flex",
               fontSize: Math.round(size * 0.034),
               color: TEXT_COLOR,
             }}
@@ -146,6 +149,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           {/* Tag Number */}
           <div
             style={{
+              display: "flex",
               fontSize: Math.round(size * 0.034),
               color: TEXT_COLOR,
               marginTop: Math.round(size * 0.005),
@@ -158,6 +162,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           {(opts.quantity ?? 1) > 1 && (
             <div
               style={{
+                display: "flex",
                 fontSize: Math.round(size * 0.030),
                 color: TEXT_COLOR,
               }}
@@ -170,6 +175,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           {opts.masterCrafted && (
             <div
               style={{
+                display: "flex",
                 fontSize: Math.round(size * 0.028),
                 color: "#6B2FAD",
                 fontWeight: 700,
@@ -186,12 +192,13 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           {/* Motto */}
           <div
             style={{
+              display: "flex",
               fontSize: Math.round(size * 0.026),
               color: TEXT_COLOR,
               marginTop: Math.round(size * 0.025),
             }}
           >
-            Wisdom · Courage · Fortitude
+            Wisdom - Courage - Fortitude
           </div>
         </div>
 
@@ -207,6 +214,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
         >
           <div
             style={{
+              display: "flex",
               fontSize: Math.round(size * 0.022),
               color: TEXT_COLOR,
             }}
@@ -215,6 +223,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           </div>
           <div
             style={{
+              display: "flex",
               fontSize: Math.round(size * 0.022),
               color: TEXT_COLOR,
             }}

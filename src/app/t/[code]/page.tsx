@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ITEM_TYPES } from "@/lib/economy";
 import { auth } from "@/lib/auth";
+import { canAccessEconomy } from "@/lib/roles";
 import TagPrintButton from "./print-button";
 
 interface Props {
@@ -26,6 +27,12 @@ export default async function TagPage({ params }: Props) {
 
   const session = await auth();
   const isOwner = session?.user?.id === item.character.userId;
+  let isEcon = false;
+  if (session?.user?.id && !isOwner) {
+    const viewer = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
+    isEcon = !!viewer && canAccessEconomy(viewer.role);
+  }
+  const canPrint = isOwner || isEcon;
 
   const typeLabel = (ITEM_TYPES as Record<string, string>)[item.itemType] ?? item.itemType;
 
@@ -42,8 +49,8 @@ export default async function TagPage({ params }: Props) {
           />
         </div>
 
-        {/* Print button for owner */}
-        {isOwner && item.status === "approved" && (
+        {/* Print button for owner or economy staff */}
+        {canPrint && item.status === "approved" && (
           <TagPrintButton
             tagCode={tagCode}
             printed={!!item.printedAt}

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { isOlderThanInactiveThreshold } from "@/lib/character-status";
+import { logAudit } from "@/lib/audit";
 
 /**
  * Check and update the inactive flag for a single character.
@@ -53,6 +54,19 @@ export async function refreshInactiveStatus(characterId: string): Promise<boolea
       where: { id: characterId },
       data: { inactive: true },
     });
+
+    await logAudit({
+      characterId,
+      actorId: "system",
+      actorName: "System",
+      actorRole: "system",
+      action: "inactive",
+      details: {
+        reason: "No event activity in 12+ months",
+        lastActivity: referenceDate.toISOString(),
+      },
+    });
+
     return true;
   }
 

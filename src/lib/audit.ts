@@ -8,6 +8,7 @@ export type AuditAction =
   | "rejected"
   | "status_change"
   | "level_up"
+  | "inactive"
   | "reactivated"
   | "deleted"
   | "registered"
@@ -17,7 +18,9 @@ export type AuditAction =
   | "signout_processed"
   | "tag_created"
   | "tag_transferred"
-  | "tag_removed";
+  | "tag_removed"
+  | "tag_approved"
+  | "tag_denied";
 
 interface AuditEntry {
   characterId: string;

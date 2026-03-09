@@ -13,6 +13,11 @@ async function main() {
 
   // ─── WIPE ALL DATA ──────────────────────────────────────────────────────────
   // Delete in dependency order
+  await prisma.encounterNPC.deleteMany();
+  await prisma.encounterEvent.deleteMany();
+  await prisma.encounterCharacter.deleteMany();
+  await prisma.encounter.deleteMany();
+  await prisma.monsterBookEntry.deleteMany();
   await prisma.bankTransaction.deleteMany();
   await prisma.playerBank.deleteMany();
   await prisma.characterSignOut.deleteMany();

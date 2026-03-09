@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ALL_ROLES, canManageUsers } from "@/lib/roles";
+import { logAudit } from "@/lib/audit";
 
 async function requireUserManager() {
   const session = await auth();
@@ -49,7 +50,31 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Cannot change your own role" }, { status: 400 });
   }
 
+  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
+  if (!targetUser) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const previousRole = targetUser.role;
   await prisma.user.update({ where: { id: userId }, data: { role } });
+
+  // Log role change against all of the user's characters
+  const characters = await prisma.character.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+
+  for (const char of characters) {
+    await logAudit({
+      characterId: char.id,
+      actorId: admin.id,
+      actorName: admin.name,
+      actorRole: admin.role,
+      action: "status_change",
+      details: { type: "role_changed", previousRole, newRole: role, userId },
+    });
+  }
+
   return NextResponse.json({ success: true });
 }
 

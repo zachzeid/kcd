@@ -257,3 +257,84 @@ model BankTransaction {
 
   @@index([bankId])
 }
+
+// ─── Encounters ────────────────────────────────────────────────────────────
+
+model Encounter {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  status      String    @default("draft") // draft, active, complete
+  signOutId   String?   // Optional link to originating sign-out
+  createdBy   String    // GM user ID
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  characters  EncounterCharacter[]
+  events      EncounterEvent[]
+  npcs        EncounterNPC[]
+
+  @@index([status])
+  @@index([createdBy])
+}
+
+model EncounterCharacter {
+  id          String    @id @default(cuid())
+  encounterId String
+  encounter   Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  characterId String
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([encounterId, characterId])
+  @@index([encounterId])
+}
+
+model EncounterEvent {
+  id          String    @id @default(cuid())
+  encounterId String
+  encounter   Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  eventId     String
+  createdAt   DateTime  @default(now())
+
+  @@unique([encounterId, eventId])
+  @@index([encounterId])
+}
+
+model EncounterNPC {
+  id              String    @id @default(cuid())
+  encounterId     String
+  encounter       Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  monsterBookId   String?
+  monsterBook     MonsterBookEntry? @relation(fields: [monsterBookId], references: [id])
+  customName      String?
+  customStats     String?   // JSON override
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  @@index([encounterId])
+}
+
+model MonsterBookEntry {
+  id          String   @id @default(cuid())
+  name        String
+  category    String?  // beast, undead, humanoid, fey, etc.
+  race        String?
+  level       Int      @default(1)
+  bodyPoints  Int      @default(1)
+  description String?
+  abilities   String?  // JSON array of abilities
+  resistances String?  // JSON array
+  weaknesses  String?  // JSON array
+  loot        String?  // JSON: typical drops/loot
+  tags        String?  // JSON array: ["boss", "minion", "elite"]
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  encounterNPCs EncounterNPC[]
+
+  @@index([createdBy])
+  @@index([category])
+}

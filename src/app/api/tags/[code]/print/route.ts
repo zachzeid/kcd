@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canAccessEconomy } from "@/lib/roles";
 
-// POST: Mark a tag as printed (one-time only, by the owning player)
+// POST: Mark a tag as printed (one-time only)
+// Allowed: owning player OR economy_marshal/admin
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ code: string }> }
@@ -27,23 +29,29 @@ export async function POST(
     return NextResponse.json({ error: "Tag not found" }, { status: 404 });
   }
 
-  // Only the owning player can print
-  if (item.character.userId !== session.user.id) {
-    return NextResponse.json({ error: "Not your tag" }, { status: 403 });
-  }
-
-  if (item.printedAt) {
-    return NextResponse.json({ error: "Tag has already been printed" }, { status: 400 });
-  }
-
   if (item.status !== "approved") {
     return NextResponse.json({ error: "Tag must be approved before printing" }, { status: 400 });
   }
 
-  await prisma.itemSubmission.update({
-    where: { tagCode },
+  // Authorization: owning player OR economy staff
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const isOwner = item.character.userId === session.user.id;
+  const isEcon = user && canAccessEconomy(user.role);
+
+  if (!isOwner && !isEcon) {
+    return NextResponse.json({ error: "Not authorized to print this tag" }, { status: 403 });
+  }
+
+  // Atomic: only update if printedAt is still null.
+  // This eliminates the race condition — only one concurrent request can succeed.
+  const result = await prisma.itemSubmission.updateMany({
+    where: { tagCode, printedAt: null },
     data: { printedAt: new Date() },
   });
+
+  if (result.count === 0) {
+    return NextResponse.json({ error: "Tag has already been printed" }, { status: 409 });
+  }
 
   return NextResponse.json({ success: true, printedAt: new Date().toISOString() });
 }

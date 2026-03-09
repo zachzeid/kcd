@@ -20,7 +20,11 @@ export async function POST(
 
   const { signoutId } = await params;
   const body = await req.json();
-  const { response } = body as { response: string };
+  const { response, createEncounter, encounterName } = body as {
+    response: string;
+    createEncounter?: boolean;
+    encounterName?: string;
+  };
 
   if (!response || typeof response !== "string" || response.trim().length === 0) {
     return NextResponse.json({ error: "Response text is required" }, { status: 400 });
@@ -63,11 +67,36 @@ export async function POST(
     },
   });
 
+  // Optionally create an encounter from this sign-out
+  let encounter = null;
+  if (createEncounter) {
+    const encName = encounterName?.trim() || `Encounter from ${signOut.betweenEventAction} (${signoutId.slice(0, 8)})`;
+    encounter = await prisma.encounter.create({
+      data: {
+        name: encName,
+        description: `Created from BEA response for sign-out ${signoutId}`,
+        signOutId: signoutId,
+        createdBy: session.user.id,
+      },
+    });
+
+    // Auto-add the sign-out's character to the encounter
+    if (signOut.characterId) {
+      await prisma.encounterCharacter.create({
+        data: {
+          encounterId: encounter.id,
+          characterId: signOut.characterId,
+        },
+      });
+    }
+  }
+
   return NextResponse.json({
     signOut: {
       id: updated.id,
       betweenEventAction: updated.betweenEventAction,
       betweenEventDetails: JSON.parse(updated.betweenEventDetails!),
     },
+    encounter: encounter ? { id: encounter.id, name: encounter.name } : null,
   });
 }

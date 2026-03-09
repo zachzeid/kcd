@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessEconomy } from "@/lib/roles";
 import { assignTagCode } from "@/lib/tag-codes";
 import { getTagUrl, getTagImageUrl } from "@/lib/tag-image";
+import { logAudit } from "@/lib/audit";
 
 // POST: Approve or deny an item submission
 export async function POST(
@@ -57,12 +58,31 @@ export async function POST(
   // On approval, assign a sequential tag code and return tag URLs
   if (action === "approve") {
     const tagCode = await assignTagCode(id);
+
+    await logAudit({
+      characterId: item.characterId,
+      actorId: session.user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      action: "tag_approved",
+      details: { itemId: id, itemName: item.itemName, itemType: item.itemType, tagCode },
+    });
+
     return NextResponse.json({
       item: { ...updated, tagCode },
       tagUrl: getTagUrl(tagCode),
       tagImageUrl: getTagImageUrl(tagCode),
     });
   }
+
+  await logAudit({
+    characterId: item.characterId,
+    actorId: session.user.id,
+    actorName: user.name,
+    actorRole: user.role,
+    action: "tag_denied",
+    details: { itemId: id, itemName: item.itemName, itemType: item.itemType, notes: notes ?? null },
+  });
 
   return NextResponse.json({ item: updated });
 }
