@@ -64,6 +64,22 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
   const [availableCharacters, setAvailableCharacters] = useState<{ id: string; name: string }[]>([]);
   const [needsCharacterSelect, setNeedsCharacterSelect] = useState(false);
 
+  // Level-up state
+  const [levelUpData, setLevelUpData] = useState<{
+    currentLevel: number;
+    totalXP: number;
+    eligibleLevel: number;
+    canLevelUp: boolean;
+    skillPointsToGain: number;
+    xpNeededForNextLevel: number;
+    xpAwarded: number;
+  } | null>(null);
+  const [levelingUp, setLevelingUp] = useState(false);
+  const [levelUpResult, setLevelUpResult] = useState<{
+    newLevel: number;
+    skillPointsGained: number;
+  } | null>(null);
+
   // Form fields
   const [npcMinutes, setNpcMinutes] = useState(0);
   const [npcDetails, setNpcDetails] = useState("");
@@ -181,6 +197,15 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
           if (signOut.status !== "pending") {
             setReadOnly(true);
           }
+          // Fetch level-up data if sign-out was processed
+          if (signOut.status === "processed" && (registration.characterId || characterId)) {
+            const charIdForLevelUp = registration.characterId || characterId;
+            const levelRes = await fetch(`/api/characters/${charIdForLevelUp}/levelup`);
+            if (levelRes.ok) {
+              const levelData = await levelRes.json();
+              setLevelUpData({ ...levelData, xpAwarded: signOut.xpAwarded ?? 0 });
+            }
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
@@ -266,6 +291,30 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
     setBetweenEventDetails((prev) => ({ ...prev, [key]: value }));
   };
 
+  // Level-up handler
+  const handleLevelUp = async () => {
+    if (!levelUpData?.canLevelUp || !characterId) return;
+    setLevelingUp(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/characters/${characterId}/levelup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetLevel: levelUpData.eligibleLevel }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to level up");
+      }
+      const result = await res.json();
+      setLevelUpResult({ newLevel: result.newLevel, skillPointsGained: result.skillPointsGained });
+      setLevelUpData((prev) => prev ? { ...prev, canLevelUp: false, currentLevel: result.newLevel } : prev);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to level up");
+    }
+    setLevelingUp(false);
+  };
+
   if (sessionStatus === "loading" || loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -329,6 +378,68 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
           </div>
         )}
 
+        {/* Level-Up Section — shown after CBD processes the sign-out */}
+        {signOutStatus === "processed" && levelUpData && (
+          <div className="mb-6 bg-gray-900 rounded-lg border border-gray-800 p-6 space-y-4">
+            <h2 className="text-lg font-bold text-white">Level Up Character</h2>
+
+            {levelUpResult ? (
+              <div className="bg-green-900/30 border border-green-700 rounded-lg p-4 text-center space-y-2">
+                <div className="text-green-300 text-3xl font-bold">Level {levelUpResult.newLevel}</div>
+                <div className="text-green-400 text-sm">
+                  +{levelUpResult.skillPointsGained} skill points gained
+                </div>
+                <p className="text-gray-400 text-sm mt-2">
+                  You can spend your new skill points from the character page.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <div className="text-gray-400 text-xs">Current Level</div>
+                    <div className="text-white text-2xl font-bold">{levelUpData.currentLevel}</div>
+                  </div>
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <div className="text-gray-400 text-xs">Total XP</div>
+                    <div className="text-amber-400 text-2xl font-bold">{levelUpData.totalXP}</div>
+                    {levelUpData.xpAwarded > 0 && (
+                      <div className="text-green-400 text-xs mt-1">+{levelUpData.xpAwarded} from this event</div>
+                    )}
+                  </div>
+                </div>
+
+                {levelUpData.canLevelUp ? (
+                  <div className="bg-amber-900/20 border border-amber-700 rounded-lg p-4 text-center space-y-3">
+                    <div className="text-amber-300 text-sm">
+                      You have enough XP to reach <span className="font-bold text-white">Level {levelUpData.eligibleLevel}</span>
+                    </div>
+                    <div className="text-gray-400 text-xs">
+                      +{levelUpData.skillPointsToGain} skill points
+                    </div>
+                    <button
+                      onClick={handleLevelUp}
+                      disabled={levelingUp}
+                      className="px-6 py-2 rounded-lg bg-amber-600 text-white font-medium hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {levelingUp ? "Leveling Up..." : `Level Up to ${levelUpData.eligibleLevel}`}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 text-center space-y-1">
+                    <div className="text-gray-400 text-sm">Not enough XP to level up yet.</div>
+                    {levelUpData.xpNeededForNextLevel > 0 && (
+                      <div className="text-gray-500 text-sm">
+                        Need <span className="text-amber-400 font-bold">{levelUpData.xpNeededForNextLevel} more XP</span> for level {levelUpData.currentLevel + 1}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Header Section */}
           <div className={sectionClass}>
@@ -371,6 +482,17 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                               setBetweenEventDetails(signOut.betweenEventDetails ? JSON.parse(signOut.betweenEventDetails) : {});
                               setSignOutStatus(signOut.status);
                               if (signOut.status !== "pending") setReadOnly(true);
+                              // Fetch level-up data if processed
+                              if (signOut.status === "processed") {
+                                fetch(`/api/characters/${selected.id}/levelup`)
+                                  .then((r) => r.ok ? r.json() : null)
+                                  .then((levelData) => {
+                                    if (levelData) {
+                                      setLevelUpData({ ...levelData, xpAwarded: signOut.xpAwarded ?? 0 });
+                                    }
+                                  })
+                                  .catch(() => {});
+                              }
                             }
                           })
                           .catch(() => {});

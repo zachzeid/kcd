@@ -125,3 +125,24 @@ export function calculateSignOutXP(eventDays: number, npcMinutes: number): numbe
 
 /** Skill training cost: 1 silver per XP when learning "in town" (between events) */
 export const SKILL_TRAINING_COST_PER_XP = 100; // 1 silver = 100 copper
+
+/**
+ * Compute starting bank balance and transactions for a character,
+ * accounting for silver spent on equipment during creation.
+ * @param silverSpent - silver spent on equipment (in silver units, not copper)
+ */
+export function startingBankData(silverSpent: number) {
+  const equipmentCostCopper = silverSpent * 100;
+  const startingBalance = STARTING_SILVER - equipmentCostCopper;
+  const transactions: { type: string; amount: number; description: string }[] = [
+    { type: "deposit", amount: STARTING_SILVER, description: "Starting silver for new character" },
+  ];
+  if (equipmentCostCopper > 0) {
+    transactions.push({
+      type: "withdrawal",
+      amount: equipmentCostCopper,
+      description: "Starting equipment purchases",
+    });
+  }
+  return { startingBalance, transactions };
+}

@@ -94,12 +94,15 @@ export default function EventsPage() {
     );
   }
 
+  const upcomingEvents = events.filter((e) => e.status !== "completed");
+  const pastEvents = events.filter((e) => e.status === "completed").reverse();
+
   return (
     <div className="min-h-screen bg-gray-950">
       <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-amber-500">Upcoming Events</h1>
+            <h1 className="text-2xl font-bold text-amber-500">Events</h1>
             <p className="text-gray-500 text-xs">Kanar Gaming Enterprises</p>
           </div>
           <Link href="/" className="text-gray-400 hover:text-white text-sm">
@@ -108,21 +111,45 @@ export default function EventsPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-4">
-        {events.length === 0 ? (
-          <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
-            <p className="text-gray-500">No upcoming events.</p>
-          </div>
-        ) : (
-          events.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              registering={registering === event.id}
-              onRegister={handleRegister}
-              onPay={handlePay}
-            />
-          ))
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+        {/* Upcoming & Active Events */}
+        <section>
+          <h2 className="text-lg font-bold text-white mb-3">Upcoming Events</h2>
+          {upcomingEvents.length === 0 ? (
+            <div className="text-center py-8 bg-gray-900/30 rounded-lg border border-gray-800">
+              <p className="text-gray-500">No upcoming events.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {upcomingEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  registering={registering === event.id}
+                  onRegister={handleRegister}
+                  onPay={handlePay}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Past Events */}
+        {pastEvents.length > 0 && (
+          <section>
+            <h2 className="text-lg font-bold text-white mb-3">Past Events</h2>
+            <div className="space-y-4">
+              {pastEvents.map((event) => (
+                <EventCard
+                  key={event.id}
+                  event={event}
+                  registering={registering === event.id}
+                  onRegister={handleRegister}
+                  onPay={handlePay}
+                />
+              ))}
+            </div>
+          </section>
         )}
       </main>
     </div>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { isStaff } from "@/lib/roles";
-import { formatSilver, STARTING_SILVER } from "@/lib/economy";
+import { formatSilver, startingBankData } from "@/lib/economy";
 
 // GET: View own bank balance and transaction history
 export async function GET(
@@ -40,17 +40,13 @@ export async function GET(
   });
 
   if (!bank) {
+    const charData = JSON.parse(character.data);
+    const { startingBalance, transactions } = startingBankData(charData.silverSpent ?? 0);
     bank = await prisma.playerBank.create({
       data: {
         characterId: id,
-        balance: STARTING_SILVER,
-        transactions: {
-          create: {
-            type: "deposit",
-            amount: STARTING_SILVER,
-            description: "Starting silver for new character",
-          },
-        },
+        balance: startingBalance,
+        transactions: { create: transactions },
       },
       include: {
         transactions: {

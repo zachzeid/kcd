@@ -207,7 +207,6 @@ export default function CharacterSummaryPage() {
             label="Skill Points"
             value={`${d.skillPointsSpent} / ${140 + (d.level - 1) * 20}`}
           />
-          <StatCard label="Equipment Silver" value={`${d.silverSpent} / 50`} />
           {history && (
             <>
               <StatCard label="Total XP" value={String(history.totalXP)} />

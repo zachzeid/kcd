@@ -109,7 +109,7 @@ export default function PrintPage() {
         <StatBox label="Body Points" value={raceBP + classBP} />
         <StatBox label="Race BP" value={raceBP} />
         <StatBox label="Class BP" value={classBP} />
-        <StatBox label="Silver Banked" value={50 - character.silverSpent} />
+        <StatBox label="Bank Silver" value={50 - character.silverSpent} />
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
@@ -127,7 +127,7 @@ export default function PrintPage() {
             />
           )}
           <InfoRow label="Skill Points Used" value={`${character.skillPointsSpent} / ${140 + (character.level - 1) * 20}`} />
-          <InfoRow label="Equipment Silver" value={`${character.silverSpent} / 50`} />
+          <InfoRow label="Starting Silver Spent" value={`${character.silverSpent} / 50`} />
           {raceInfo && (
             <InfoRow label="Costuming" value={raceInfo.costumingRequirements} />
           )}

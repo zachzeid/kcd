@@ -7,7 +7,7 @@ import {
   skillLevelToTier,
   craftLevelToTier,
   formatSilver,
-  STARTING_SILVER,
+  startingBankData,
 } from "@/lib/economy";
 
 interface EarningEntry {
@@ -130,17 +130,13 @@ export async function POST(req: NextRequest) {
     // Get or create bank
     let bank = await prisma.playerBank.findUnique({ where: { characterId } });
     if (!bank) {
+      const charData = JSON.parse(character.data);
+      const { startingBalance, transactions } = startingBankData(charData.silverSpent ?? 0);
       bank = await prisma.playerBank.create({
         data: {
           characterId,
-          balance: STARTING_SILVER,
-          transactions: {
-            create: {
-              type: "deposit",
-              amount: STARTING_SILVER,
-              description: "Starting silver for new character",
-            },
-          },
+          balance: startingBalance,
+          transactions: { create: transactions },
         },
       });
     }

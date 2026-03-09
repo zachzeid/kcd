@@ -449,21 +449,25 @@ async function main() {
   // ─── PLAYER BANKS ────────────────────────────────────────────────────────────
   const chars = [kara, maeven, elara, marcus, vaelith];
   for (const c of chars) {
+    const charData = JSON.parse(c.data);
+    const silverSpent = charData.silverSpent ?? 0;
+    const equipmentCost = silverSpent * 100; // convert silver to copper
+    const startingBalance = 5000 - equipmentCost;
+    const transactions: { type: string; amount: number; description: string }[] = [
+      { type: "deposit", amount: 5000, description: "Starting silver for new character" },
+    ];
+    if (equipmentCost > 0) {
+      transactions.push({ type: "withdrawal", amount: equipmentCost, description: "Starting equipment purchases" });
+    }
     await prisma.playerBank.create({
       data: {
         characterId: c.id,
-        balance: 5000,
-        transactions: {
-          create: {
-            type: "deposit",
-            amount: 5000,
-            description: "Starting silver for new character",
-          },
-        },
+        balance: startingBalance,
+        transactions: { create: transactions },
       },
     });
   }
-  console.log("✓ Created player banks with starting silver");
+  console.log("✓ Created player banks with starting silver (minus equipment)");
 
   // ─── EVENT 1 REGISTRATIONS: Autumn's End 2025 (completed) ────────────────────
   // Attended: Kara, Maeven, Elara, Vaelith (4 of 5 — Marcus wasn't created yet)
@@ -538,7 +542,25 @@ async function main() {
     },
   });
 
-  console.log("✓ Created Winter's Tale registrations (3 players)");
+  // Elara and Vaelith also attended Winter's Tale — NO sign-outs yet (for testing)
+  await prisma.eventRegistration.create({
+    data: {
+      userId: p3.id, eventId: event2.id, characterId: elara.id,
+      ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
+      arfSignedAt: new Date("2026-01-18"), arfYear: 2026,
+      checkedInAt: new Date("2026-02-15T10:30:00"), checkedOutAt: new Date("2026-02-16T17:45:00"),
+    },
+  });
+  await prisma.eventRegistration.create({
+    data: {
+      userId: p5.id, eventId: event2.id, characterId: vaelith.id,
+      ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
+      arfSignedAt: new Date("2026-01-22"), arfYear: 2026,
+      checkedInAt: new Date("2026-02-15T11:00:00"), checkedOutAt: new Date("2026-02-16T18:00:00"),
+    },
+  });
+
+  console.log("✓ Created Winter's Tale registrations (5 players)");
 
   // ─── SIGN-OUTS FOR COMPLETED EVENTS ──────────────────────────────────────────
 

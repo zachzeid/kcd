@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessEconomy } from "@/lib/roles";
-import { formatSilver, STARTING_SILVER } from "@/lib/economy";
+import { formatSilver, startingBankData } from "@/lib/economy";
 
 const VALID_TRANSACTION_TYPES = [
   "deposit",
@@ -65,17 +65,13 @@ export async function POST(
   // Get or create bank
   let bank = await prisma.playerBank.findUnique({ where: { characterId } });
   if (!bank) {
+    const charData = JSON.parse(character.data);
+    const { startingBalance, transactions } = startingBankData(charData.silverSpent ?? 0);
     bank = await prisma.playerBank.create({
       data: {
         characterId,
-        balance: STARTING_SILVER,
-        transactions: {
-          create: {
-            type: "deposit",
-            amount: STARTING_SILVER,
-            description: "Starting silver for new character",
-          },
-        },
+        balance: startingBalance,
+        transactions: { create: transactions },
       },
     });
   }

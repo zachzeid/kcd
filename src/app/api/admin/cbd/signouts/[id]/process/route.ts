@@ -68,6 +68,7 @@ export async function POST(
   const xpAwarded = calculateSignOutXP(eventDays, signOut.npcMinutes);
 
   // Update sign-out and registration in a transaction
+  // Also set checkedOutAt if not already set (player sign-outs without staff checkout)
   const [updatedSignOut] = await prisma.$transaction([
     prisma.characterSignOut.update({
       where: { id },
@@ -84,6 +85,7 @@ export async function POST(
       data: {
         xpEarned: xpAwarded,
         npcMinutes: signOut.npcMinutes,
+        ...(signOut.registration.checkedOutAt ? {} : { checkedOutAt: new Date() }),
       },
     }),
   ]);

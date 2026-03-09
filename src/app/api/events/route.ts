@@ -13,8 +13,8 @@ export async function GET() {
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
   const staffAccess = user && isStaff(user.role);
 
-  // Staff see all events; players see only upcoming/active
-  const where = staffAccess ? {} : { status: { in: ["upcoming", "active"] } };
+  // Staff see all events; players see upcoming, active, and completed
+  const where = staffAccess ? {} : { status: { in: ["upcoming", "active", "completed"] } };
 
   const events = await prisma.event.findMany({
     where,

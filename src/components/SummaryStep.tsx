@@ -37,7 +37,7 @@ export default function SummaryStep({ character }: Props) {
           <StatBlock label="Race BP" value={raceBP} />
           <StatBlock label="Class BP" value={classBP} />
           <StatBlock label="Skill Points Used" value={character.skillPointsSpent} max={140} />
-          <StatBlock label="Silver Remaining" value={50 - character.silverSpent} max={50} />
+          <StatBlock label="Starting Bank" value={50 - character.silverSpent} max={50} />
         </div>
 
         <div>
