@@ -50,6 +50,7 @@ export async function GET(
     masterCrafted: item.masterCrafted,
     status: item.status,
     tagCode: item.tagCode,
+    printedAt: item.printedAt?.toISOString() ?? null,
     createdAt: item.createdAt.toISOString(),
   }));
 

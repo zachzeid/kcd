@@ -222,6 +222,7 @@ model ItemSubmission {
   tagIssued        Boolean  @default(false)
   tagCode          Int?     @unique // Sequential tag number, assigned on approval
   tagImageUrl      String?  // Path/URL to generated tag image
+  printedAt        DateTime? // Once printed by player, cannot print again
 
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt

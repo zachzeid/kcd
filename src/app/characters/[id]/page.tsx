@@ -91,6 +91,7 @@ interface TagItem {
   masterCrafted: boolean;
   status: string;
   tagCode: number | null;
+  printedAt: string | null;
   createdAt: string;
 }
 
@@ -369,7 +370,19 @@ export default function CharacterSummaryPage() {
         {/* Tags (Item Submissions) */}
         {tags.length > 0 && (
           <CollapsibleSection title="Tags" count={tags.length}>
-            <TagsSection tagsByType={tagsByType} tagTypeKeys={tagTypeKeys} />
+            <TagsSection
+              tagsByType={tagsByType}
+              tagTypeKeys={tagTypeKeys}
+              onTagPrinted={(tagCode) =>
+                setTags((prev) =>
+                  prev.map((t) =>
+                    t.tagCode === tagCode
+                      ? { ...t, printedAt: new Date().toISOString() }
+                      : t
+                  )
+                )
+              }
+            />
           </CollapsibleSection>
         )}
 
@@ -544,16 +557,42 @@ export default function CharacterSummaryPage() {
 function TagsSection({
   tagsByType,
   tagTypeKeys,
+  onTagPrinted,
 }: {
   tagsByType: Record<string, TagItem[]>;
   tagTypeKeys: string[];
+  onTagPrinted: (tagCode: number) => void;
 }) {
   const [activeTab, setActiveTab] = useState(tagTypeKeys[0] ?? "");
+  const [printing, setPrinting] = useState<number | null>(null);
 
   const typeLabel = (type: string) =>
     (ITEM_TYPES as Record<string, string>)[type] ?? type;
 
   const activeTags = tagsByType[activeTab] ?? [];
+
+  const handlePrint = async (tag: TagItem) => {
+    if (!tag.tagCode || tag.printedAt) return;
+    setPrinting(tag.tagCode);
+    try {
+      const r = await fetch(`/api/tags/${tag.tagCode}/print`, { method: "POST" });
+      if (!r.ok) {
+        const data = await r.json();
+        alert(data.error || "Print failed");
+        return;
+      }
+      onTagPrinted(tag.tagCode);
+      // Open print-friendly image in new window
+      const printWin = window.open(`/api/tags/${tag.tagCode}/image`, "_blank");
+      if (printWin) {
+        printWin.addEventListener("load", () => {
+          printWin.print();
+        });
+      }
+    } finally {
+      setPrinting(null);
+    }
+  };
 
   return (
     <div className="bg-gray-900 rounded-lg border border-gray-800">
@@ -578,61 +617,104 @@ function TagsSection({
       </div>
 
       {/* Tag items */}
-      <div className="p-3 space-y-2">
+      <div className="p-3 space-y-3">
         {activeTags.length === 0 ? (
           <p className="text-gray-500 text-sm text-center py-4">No tags in this category.</p>
         ) : (
           activeTags.map((tag) => (
             <div
               key={tag.id}
-              className="flex items-center justify-between p-3 rounded-lg border border-gray-800 bg-gray-950/50"
+              className="rounded-lg border border-gray-800 bg-gray-950/50 overflow-hidden"
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-white text-sm font-medium truncate">{tag.itemName}</span>
-                  {tag.quantity > 1 && (
-                    <span className="text-gray-500 text-xs">x{tag.quantity}</span>
-                  )}
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                      tag.status === "approved"
-                        ? "bg-green-900 text-green-300"
-                        : tag.status === "denied"
-                          ? "bg-red-900 text-red-300"
-                          : "bg-yellow-900 text-yellow-300"
-                    }`}
+              {/* Tag image + details row */}
+              <div className="flex gap-3 p-3">
+                {/* Tag image thumbnail */}
+                {tag.tagCode ? (
+                  <a
+                    href={`/t/${tag.tagCode}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0"
                   >
-                    {tag.status}
-                  </span>
-                  {tag.masterCrafted && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-900 text-purple-300">
-                      Master
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`/api/tags/${tag.tagCode}/image`}
+                      alt={`Tag #${tag.tagCode}`}
+                      className="w-24 h-24 rounded border border-gray-700 object-cover hover:border-amber-600 transition-colors"
+                    />
+                  </a>
+                ) : (
+                  <div className="w-24 h-24 rounded border border-gray-800 bg-gray-900 flex items-center justify-center shrink-0">
+                    <span className="text-gray-600 text-xs">No tag</span>
+                  </div>
+                )}
+
+                {/* Details */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-white text-sm font-medium">{tag.itemName}</span>
+                    {tag.quantity > 1 && (
+                      <span className="text-gray-500 text-xs">x{tag.quantity}</span>
+                    )}
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        tag.status === "approved"
+                          ? "bg-green-900 text-green-300"
+                          : tag.status === "denied"
+                            ? "bg-red-900 text-red-300"
+                            : "bg-yellow-900 text-yellow-300"
+                      }`}
+                    >
+                      {tag.status}
                     </span>
+                    {tag.masterCrafted && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-900 text-purple-300">
+                        Master
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-gray-500 text-xs mt-1">
+                    {tag.craftingSkill} Lv.{tag.craftingLevel}
+                    {tag.primaryMaterial && <> &middot; {tag.primaryMaterial}</>}
+                    {tag.secondaryMaterial && <> + {tag.secondaryMaterial}</>}
+                  </div>
+                  {tag.itemDescription && (
+                    <div className="text-gray-600 text-xs mt-0.5">{tag.itemDescription}</div>
+                  )}
+                  {tag.tagCode && (
+                    <div className="text-amber-400/70 text-xs font-mono mt-1">
+                      Tag #{tag.tagCode}
+                    </div>
                   )}
                 </div>
-                <div className="text-gray-500 text-xs mt-0.5">
-                  {tag.craftingSkill} Lv.{tag.craftingLevel}
-                  {tag.primaryMaterial && <> &middot; {tag.primaryMaterial}</>}
-                  {tag.secondaryMaterial && <> + {tag.secondaryMaterial}</>}
-                  {tag.itemDescription && (
-                    <span className="text-gray-600 ml-2">&mdash; {tag.itemDescription}</span>
+
+                {/* Actions */}
+                <div className="shrink-0 flex flex-col gap-1.5 items-end">
+                  {tag.tagCode && (
+                    <a
+                      href={`/t/${tag.tagCode}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 rounded text-xs bg-indigo-800 text-indigo-200 hover:bg-indigo-700 transition-colors"
+                    >
+                      View
+                    </a>
                   )}
+                  {tag.tagCode && !tag.printedAt ? (
+                    <button
+                      onClick={() => handlePrint(tag)}
+                      disabled={printing === tag.tagCode}
+                      className="px-3 py-1.5 rounded text-xs bg-amber-700 text-amber-100 hover:bg-amber-600 disabled:opacity-50 transition-colors"
+                    >
+                      {printing === tag.tagCode ? "..." : "Print"}
+                    </button>
+                  ) : tag.printedAt ? (
+                    <span className="px-3 py-1.5 rounded text-xs bg-gray-800 text-gray-500 cursor-not-allowed">
+                      Printed
+                    </span>
+                  ) : null}
                 </div>
               </div>
-              {tag.tagCode ? (
-                <a
-                  href={`/t/${tag.tagCode}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-3 shrink-0 px-3 py-1.5 rounded text-xs bg-indigo-800 text-indigo-200 hover:bg-indigo-700 transition-colors"
-                >
-                  Tag #{tag.tagCode}
-                </a>
-              ) : (
-                <span className="ml-3 shrink-0 px-3 py-1.5 rounded text-xs bg-gray-800 text-gray-500">
-                  No tag
-                </span>
-              )}
             </div>
           ))
         )}
