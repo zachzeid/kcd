@@ -9,6 +9,7 @@ import {
   BETWEEN_EVENT_ACTIONS,
   type BetweenEventAction,
 } from "@/lib/economy";
+import { skills as allSkills, skillCategories } from "@/data/skills";
 
 interface SkillLearned {
   skillName: string;
@@ -63,6 +64,9 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
   // Character selection (when not pre-assigned by staff check-in)
   const [availableCharacters, setAvailableCharacters] = useState<{ id: string; name: string }[]>([]);
   const [needsCharacterSelect, setNeedsCharacterSelect] = useState(false);
+
+  // Character's purchased skills (for "skills taught" dropdown)
+  const [characterSkills, setCharacterSkills] = useState<string[]>([]);
 
   // Level-up state
   const [levelUpData, setLevelUpData] = useState<{
@@ -137,11 +141,14 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
           // Character was assigned during staff check-in
           setCharacterId(registration.characterId);
 
-          // Fetch character name
+          // Fetch character name and skills
           const charRes = await fetch(`/api/characters/${registration.characterId}`);
           if (charRes.ok) {
             const charData = await charRes.json();
             setCharacterName(charData.name);
+            if (charData.data?.skills) {
+              setCharacterSkills(charData.data.skills.map((s: { skillName: string }) => s.skillName));
+            }
           }
         } else {
           // No staff check-in — let player pick a character
@@ -158,6 +165,15 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
               // Auto-select if only one character
               setCharacterId(eligible[0].id);
               setCharacterName(eligible[0].name);
+              // Load skills for the auto-selected character
+              fetch(`/api/characters/${eligible[0].id}`)
+                .then((r) => r.ok ? r.json() : null)
+                .then((cd) => {
+                  if (cd?.data?.skills) {
+                    setCharacterSkills(cd.data.skills.map((s: { skillName: string }) => s.skillName));
+                  }
+                })
+                .catch(() => {});
             } else if (eligible.length > 1) {
               setNeedsCharacterSelect(true);
             } else {
@@ -315,6 +331,18 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
     setLevelingUp(false);
   };
 
+  // Pill-based skill picker for between-event actions
+  const selectedRelevantSkills = (betweenEventDetails.relevantSkills ?? "").split(",").filter(Boolean);
+  const selectedCraftingSkills = (betweenEventDetails.craftingSkills ?? "").split(",").filter(Boolean);
+
+  const toggleSkill = (key: string, skillName: string) => {
+    const current = (betweenEventDetails[key] ?? "").split(",").filter(Boolean);
+    const updated = current.includes(skillName)
+      ? current.filter((s) => s !== skillName)
+      : [...current, skillName];
+    updateBEDetail(key, updated.join(","));
+  };
+
   if (sessionStatus === "loading" || loading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
@@ -460,6 +488,15 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                         setCharacterId(selected.id);
                         setCharacterName(selected.name);
                         setNeedsCharacterSelect(false);
+                        // Load character skills for taught dropdown
+                        fetch(`/api/characters/${selected.id}`)
+                          .then((r) => r.ok ? r.json() : null)
+                          .then((cd) => {
+                            if (cd?.data?.skills) {
+                              setCharacterSkills(cd.data.skills.map((s: { skillName: string }) => s.skillName));
+                            }
+                          })
+                          .catch(() => {});
                         // Check for existing sign-out for this character
                         fetch(`/api/characters/${selected.id}/signout?eventId=${eventId}`)
                           .then((r) => r.ok ? r.json() : null)
@@ -599,13 +636,21 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
               <div key={idx} className="grid grid-cols-[1fr_auto_1fr_1fr_auto] gap-2 items-end">
                 <div>
                   <label className={labelClass}>Skill Name</label>
-                  <input
-                    type="text"
+                  <select
                     value={skill.skillName}
                     onChange={(e) => updateSkillLearned(idx, "skillName", e.target.value)}
                     disabled={readOnly}
                     className={inputClass}
-                  />
+                  >
+                    <option value="">Select skill...</option>
+                    {skillCategories.map((cat) => (
+                      <optgroup key={cat} label={cat}>
+                        {allSkills.filter((s) => s.category === cat).map((s) => (
+                          <option key={s.name} value={s.name}>{s.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </div>
                 <div className="w-20">
                   <label className={labelClass}>Count</label>
@@ -670,13 +715,17 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
               <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
                 <div>
                   <label className={labelClass}>Skill Name</label>
-                  <input
-                    type="text"
+                  <select
                     value={skill.skillName}
                     onChange={(e) => updateSkillTaught(idx, "skillName", e.target.value)}
                     disabled={readOnly}
                     className={inputClass}
-                  />
+                  >
+                    <option value="">Select skill...</option>
+                    {characterSkills.map((name) => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className={labelClass}>Student Names (comma-separated)</label>
@@ -874,14 +923,25 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 </div>
                 <div>
                   <label className={labelClass}>Relevant Skills</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.relevantSkills ?? ""}
-                    onChange={(e) => updateBEDetail("relevantSkills", e.target.value)}
-                    disabled={readOnly}
-                    placeholder="Skills being used"
-                    className={inputClass}
-                  />
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {characterSkills.length > 0 ? characterSkills.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => toggleSkill("relevantSkills", name)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                          selectedRelevantSkills.includes(name)
+                            ? "bg-amber-600 text-white"
+                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                        } disabled:cursor-not-allowed`}
+                      >
+                        {name}
+                      </button>
+                    )) : (
+                      <span className="text-gray-500 text-sm">No skills on character</span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -911,13 +971,25 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 </div>
                 <div>
                   <label className={labelClass}>Relevant Skills</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.relevantSkills ?? ""}
-                    onChange={(e) => updateBEDetail("relevantSkills", e.target.value)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  />
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {characterSkills.length > 0 ? characterSkills.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => toggleSkill("relevantSkills", name)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                          selectedRelevantSkills.includes(name)
+                            ? "bg-amber-600 text-white"
+                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                        } disabled:cursor-not-allowed`}
+                      >
+                        {name}
+                      </button>
+                    )) : (
+                      <span className="text-gray-500 text-sm">No skills on character</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass}>Leads / Contacts</label>
@@ -958,13 +1030,25 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 </div>
                 <div>
                   <label className={labelClass}>Crafting Skills</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.craftingSkills ?? ""}
-                    onChange={(e) => updateBEDetail("craftingSkills", e.target.value)}
-                    disabled={readOnly}
-                    className={inputClass}
-                  />
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {characterSkills.length > 0 ? characterSkills.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        disabled={readOnly}
+                        onClick={() => toggleSkill("craftingSkills", name)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                          selectedCraftingSkills.includes(name)
+                            ? "bg-amber-600 text-white"
+                            : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                        } disabled:cursor-not-allowed`}
+                      >
+                        {name}
+                      </button>
+                    )) : (
+                      <span className="text-gray-500 text-sm">No skills on character</span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className={labelClass}>Location</label>
