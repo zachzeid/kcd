@@ -127,7 +127,7 @@ export async function POST(
               data: {
                 bankId: bank.id,
                 type: txn.type,
-                amount: txn.type === "withdrawal" ? -txn.amount : txn.amount,
+                amount: txn.amount,
                 description: txn.description,
               },
             });

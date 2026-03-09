@@ -457,7 +457,7 @@ async function main() {
       { type: "deposit", amount: 5000, description: "Starting silver for new character" },
     ];
     if (equipmentCost > 0) {
-      transactions.push({ type: "withdrawal", amount: equipmentCost, description: "Starting equipment purchases" });
+      transactions.push({ type: "withdrawal", amount: -equipmentCost, description: "Starting equipment purchases" });
     }
     await prisma.playerBank.create({
       data: {

@@ -140,7 +140,7 @@ export function startingBankData(silverSpent: number) {
   if (equipmentCostCopper > 0) {
     transactions.push({
       type: "withdrawal",
-      amount: equipmentCostCopper,
+      amount: -equipmentCostCopper,
       description: "Starting equipment purchases",
     });
   }
