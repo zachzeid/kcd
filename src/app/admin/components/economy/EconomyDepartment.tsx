@@ -34,18 +34,18 @@ export default function EconomyDepartment() {
       fetch("/api/admin/economy/items")
         .then((r) => {
           if (r.ok) return r.json();
-          return [];
+          return { items: [] };
         })
-        .then(setItems)
+        .then((data) => setItems(data.items ?? []))
         .catch(() => setItems([]))
         .finally(() => setLoading(false));
     } else if (subTab === "banks") {
       fetch("/api/admin/economy/banks")
         .then((r) => {
           if (r.ok) return r.json();
-          return [];
+          return { banks: [] };
         })
-        .then(setBanks)
+        .then((data) => setBanks(data.banks ?? []))
         .catch(() => setBanks([]))
         .finally(() => setLoading(false));
     }
