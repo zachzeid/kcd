@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ITEM_TYPES } from "@/lib/economy";
+import { auth } from "@/lib/auth";
+import TagPrintButton from "./print-button";
 
 interface Props {
   params: Promise<{ code: string }>;
@@ -15,12 +17,15 @@ export default async function TagPage({ params }: Props) {
   const item = await prisma.itemSubmission.findUnique({
     where: { tagCode },
     include: {
-      character: { select: { name: true } },
+      character: { select: { name: true, userId: true } },
       user: { select: { name: true } },
     },
   });
 
   if (!item) return notFound();
+
+  const session = await auth();
+  const isOwner = session?.user?.id === item.character.userId;
 
   const typeLabel = (ITEM_TYPES as Record<string, string>)[item.itemType] ?? item.itemType;
 
@@ -36,6 +41,14 @@ export default async function TagPage({ params }: Props) {
             className="w-full h-auto"
           />
         </div>
+
+        {/* Print button for owner */}
+        {isOwner && item.status === "approved" && (
+          <TagPrintButton
+            tagCode={tagCode}
+            printed={!!item.printedAt}
+          />
+        )}
 
         {/* Tag details */}
         <div className="bg-gray-900 rounded-lg border border-gray-800 p-5 space-y-3">
@@ -71,9 +84,11 @@ export default async function TagPage({ params }: Props) {
               className={`px-2 py-0.5 rounded text-xs font-bold ${
                 item.status === "approved"
                   ? "bg-green-900 text-green-300"
-                  : item.status === "denied"
+                  : item.status === "removed"
                     ? "bg-red-900 text-red-300"
-                    : "bg-yellow-900 text-yellow-300"
+                    : item.status === "denied"
+                      ? "bg-red-900 text-red-300"
+                      : "bg-yellow-900 text-yellow-300"
               }`}
             >
               {item.status}
@@ -81,6 +96,11 @@ export default async function TagPage({ params }: Props) {
             {item.processedAt && (
               <span className="text-gray-600 text-xs">
                 {new Date(item.processedAt).toLocaleDateString()}
+              </span>
+            )}
+            {item.printedAt && (
+              <span className="text-gray-600 text-xs">
+                Printed {new Date(item.printedAt).toLocaleDateString()}
               </span>
             )}
           </div>
