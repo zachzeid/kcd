@@ -73,7 +73,17 @@ export async function POST(req: NextRequest) {
     let bank = await prisma.playerBank.findUnique({ where: { characterId } });
     if (!bank) {
       bank = await prisma.playerBank.create({
-        data: { characterId, balance: STARTING_SILVER },
+        data: {
+          characterId,
+          balance: STARTING_SILVER,
+          transactions: {
+            create: {
+              type: "deposit",
+              amount: STARTING_SILVER,
+              description: "Starting silver for new character",
+            },
+          },
+        },
       });
     }
 

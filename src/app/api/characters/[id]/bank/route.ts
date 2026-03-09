@@ -41,7 +41,17 @@ export async function GET(
 
   if (!bank) {
     bank = await prisma.playerBank.create({
-      data: { characterId: id, balance: STARTING_SILVER },
+      data: {
+        characterId: id,
+        balance: STARTING_SILVER,
+        transactions: {
+          create: {
+            type: "deposit",
+            amount: STARTING_SILVER,
+            description: "Starting silver for new character",
+          },
+        },
+      },
       include: {
         transactions: {
           orderBy: { createdAt: "desc" },
