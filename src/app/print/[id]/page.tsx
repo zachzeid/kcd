@@ -59,8 +59,8 @@ export default function PrintPage() {
 
   const raceInfo = races.find((r) => r.name === character.race);
   const classInfo = classes.find((c) => c.name === character.characterClass);
-  const raceBP = raceInfo?.bodyPointsByLevel[0] ?? 0;
-  const classBP = classInfo?.bodyPointsByLevel[0] ?? 0;
+  const raceBP = raceInfo?.bodyPointsByLevel[character.level - 1] ?? 0;
+  const classBP = classInfo?.bodyPointsByLevel[character.level - 1] ?? 0;
 
   // Calculate XP progression
   const currentLevelXP = xpTable[character.level - 1] ?? 0;

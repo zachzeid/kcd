@@ -5,6 +5,8 @@ import { canAccessCBD } from "@/lib/roles";
 import { logAudit } from "@/lib/audit";
 import { calculateSignOutXP, craftLevelToTier, PROFESSION_RATES, startingBankData } from "@/lib/economy";
 import { levelFromXP, STARTING_SKILL_POINTS } from "@/data/xp-table";
+import { races } from "@/data/races";
+import { classes } from "@/data/classes";
 
 // POST: Process or reject a sign-out
 export async function POST(
@@ -119,6 +121,10 @@ export async function POST(
       charData.level = newLevel;
       // Total SP = starting 140 + all earned XP. skillPoints tracks the total pool.
       charData.skillPoints = STARTING_SKILL_POINTS + newTotalXP;
+      // Recalculate body points for new level
+      const raceInfo = races.find((r) => r.name === charData.race);
+      const classInfo = classes.find((c) => c.name === charData.characterClass);
+      charData.bodyPoints = (raceInfo?.bodyPointsByLevel[newLevel - 1] ?? 0) + (classInfo?.bodyPointsByLevel[newLevel - 1] ?? 0);
 
       await prisma.character.update({
         where: { id: signOut.characterId },

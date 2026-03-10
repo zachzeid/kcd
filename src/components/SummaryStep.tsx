@@ -11,8 +11,8 @@ interface Props {
 export default function SummaryStep({ character }: Props) {
   const raceInfo = races.find((r) => r.name === character.race);
   const classInfo = classes.find((c) => c.name === character.characterClass);
-  const raceBP = raceInfo?.bodyPointsByLevel[0] ?? 0;
-  const classBP = classInfo?.bodyPointsByLevel[0] ?? 0;
+  const raceBP = raceInfo?.bodyPointsByLevel[character.level - 1] ?? 0;
+  const classBP = classInfo?.bodyPointsByLevel[character.level - 1] ?? 0;
   const totalBP = raceBP + classBP;
 
   return (
