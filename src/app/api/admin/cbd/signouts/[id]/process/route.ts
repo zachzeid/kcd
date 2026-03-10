@@ -24,7 +24,8 @@ export async function POST(
   }
 
   const { id } = await params;
-  const { action, notes } = await req.json();
+  const { action, notes, confirmedSkills } = await req.json();
+  // confirmedSkills: Array<{ skillName: string; count: number; teacherName: string; confirmedBy: "auto"|"cbd" }>
 
   if (!action || !["process", "reject"].includes(action)) {
     return NextResponse.json({ error: "Invalid action. Must be 'process' or 'reject'" }, { status: 400 });
@@ -217,6 +218,57 @@ export async function POST(
     }
   }
 
+  // Add confirmed skills to character's purchased skills
+  const skillsConfirmed: { skillName: string; count: number; teacherName: string; confirmedBy: string }[] = [];
+  if (Array.isArray(confirmedSkills) && confirmedSkills.length > 0) {
+    const character = await prisma.character.findUnique({ where: { id: signOut.characterId } });
+    if (character) {
+      const charData = JSON.parse(character.data as string);
+      const skills: { skillName: string; purchaseCount: number; totalCost: number; acquiredAt?: string; reason?: string }[] = charData.skills ?? [];
+
+      for (const cs of confirmedSkills) {
+        if (!cs.skillName || !cs.count) continue;
+
+        const existing = skills.find((s) => s.skillName === cs.skillName);
+        if (existing) {
+          existing.purchaseCount += cs.count;
+        } else {
+          skills.push({
+            skillName: cs.skillName,
+            purchaseCount: cs.count,
+            totalCost: 0, // Learned skills have no SP cost
+            acquiredAt: new Date().toISOString(),
+            reason: cs.confirmedBy === "auto"
+              ? `Learned from ${cs.teacherName} at event`
+              : `Learned from ${cs.teacherName} — confirmed by CBD`,
+          });
+        }
+        skillsConfirmed.push(cs);
+
+        await logAudit({
+          characterId: signOut.characterId,
+          actorId: cs.confirmedBy === "auto" ? "system" : session.user.id,
+          actorName: cs.confirmedBy === "auto" ? "System" : user.name,
+          actorRole: cs.confirmedBy === "auto" ? "system" : user.role,
+          action: "skill_confirmed",
+          details: {
+            skillName: cs.skillName,
+            count: cs.count,
+            teacherName: cs.teacherName,
+            confirmedBy: cs.confirmedBy,
+            eventId: signOut.eventId,
+          },
+        });
+      }
+
+      charData.skills = skills;
+      await prisma.character.update({
+        where: { id: signOut.characterId },
+        data: { data: JSON.stringify(charData) },
+      });
+    }
+  }
+
   await logAudit({
     characterId: signOut.characterId,
     actorId: session.user.id,
@@ -228,9 +280,10 @@ export async function POST(
       eventId: signOut.eventId,
       xpAwarded,
       coinEarnings: coinEarnings || 0,
+      skillsConfirmed: skillsConfirmed.length > 0 ? skillsConfirmed : undefined,
       ...(isLateSignOut ? { lateSignOut: true, npcMinutesForfeited: signOut.npcMinutes } : {}),
     },
   });
 
-  return NextResponse.json({ ...updatedSignOut, xpAwarded, coinEarnings, isLateSignOut });
+  return NextResponse.json({ ...updatedSignOut, xpAwarded, coinEarnings, isLateSignOut, skillsConfirmed });
 }

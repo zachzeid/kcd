@@ -9,7 +9,9 @@ import {
   BETWEEN_EVENT_ACTIONS,
   type BetweenEventAction,
 } from "@/lib/economy";
-import { skills as allSkills, skillCategories } from "@/data/skills";
+import { skills as allSkills, skillCategories, getBaseSkillName } from "@/data/skills";
+import { checkPrerequisites } from "@/lib/prerequisites";
+import type { PurchasedSkill } from "@/types/character";
 import { craftLevelToTier, PROFESSION_RATES } from "@/lib/economy";
 
 const TRADE_SKILL_NAMES = ["Craft", "Forensics", "Herbalism", "Pick Locks"];
@@ -340,6 +342,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
 
   // Character's purchased skills (for "skills taught" dropdown and trade skill detection)
   const [characterSkills, setCharacterSkills] = useState<string[]>([]);
+  const [characterPurchasedSkills, setCharacterPurchasedSkills] = useState<PurchasedSkill[]>([]);
   const [characterTradeSkills, setCharacterTradeSkills] = useState<
     { skillName: string; specialization?: string; purchaseCount: number }[]
   >([]);
@@ -425,6 +428,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             setCharacterName(charData.name);
             if (charData.data?.skills) {
               setCharacterSkills(charData.data.skills.map((s: { skillName: string }) => s.skillName));
+              setCharacterPurchasedSkills(charData.data.skills);
               setCharacterTradeSkills(extractTradeSkills(charData.data.skills));
             }
           }
@@ -449,6 +453,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 .then((cd) => {
                   if (cd?.data?.skills) {
                     setCharacterSkills(cd.data.skills.map((s: { skillName: string }) => s.skillName));
+                    setCharacterPurchasedSkills(cd.data.skills);
                     setCharacterTradeSkills(extractTradeSkills(cd.data.skills));
                   }
                 })
@@ -604,6 +609,53 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
     if (!teacherCharacterId) return [];
     const attendee = eventAttendees.find((a) => a.characterId === teacherCharacterId);
     return attendee?.skills ?? [];
+  };
+
+  // Filter skills the learner can actually learn based on prerequisites
+  // Builds "effective ownership" = current skills + skills already listed as learned above this row
+  const getLearnableSkills = (teacherSkills: string[], currentIdx: number) => {
+    // Start with character's existing purchased skills
+    const effectiveSkills: PurchasedSkill[] = characterPurchasedSkills.map((s) => ({ ...s }));
+
+    // Add skills from earlier "skills learned" entries in this form (cumulative)
+    for (let i = 0; i < currentIdx; i++) {
+      const entry = skillsLearned[i];
+      if (!entry.skillName) continue;
+      const existing = effectiveSkills.find((s) => s.skillName === entry.skillName);
+      if (existing) {
+        existing.purchaseCount += entry.count;
+      } else {
+        effectiveSkills.push({ skillName: entry.skillName, purchaseCount: entry.count, totalCost: 0 });
+      }
+    }
+
+    // Check each teacher skill against prerequisites
+    return teacherSkills.filter((skillName) => {
+      const skillDef = allSkills.find((s) => s.name === skillName || s.name === getBaseSkillName(skillName));
+      if (!skillDef) return true; // unknown skill — allow it
+      const result = checkPrerequisites(skillName, skillDef.prerequisite, effectiveSkills, []);
+      return result.met;
+    });
+  };
+
+  // For the fallback (no teacher selected), filter all skills by prerequisites
+  const getAllLearnableSkills = (currentIdx: number) => {
+    const effectiveSkills: PurchasedSkill[] = characterPurchasedSkills.map((s) => ({ ...s }));
+    for (let i = 0; i < currentIdx; i++) {
+      const entry = skillsLearned[i];
+      if (!entry.skillName) continue;
+      const existing = effectiveSkills.find((s) => s.skillName === entry.skillName);
+      if (existing) {
+        existing.purchaseCount += entry.count;
+      } else {
+        effectiveSkills.push({ skillName: entry.skillName, purchaseCount: entry.count, totalCost: 0 });
+      }
+    }
+
+    return allSkills.filter((skillDef) => {
+      const result = checkPrerequisites(skillDef.name, skillDef.prerequisite, effectiveSkills, []);
+      return result.met;
+    });
   };
 
   // Skill taught helpers
@@ -831,6 +883,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                           .then((cd) => {
                             if (cd?.data?.skills) {
                               setCharacterSkills(cd.data.skills.map((s: { skillName: string }) => s.skillName));
+                              setCharacterPurchasedSkills(cd.data.skills);
                               setCharacterTradeSkills(extractTradeSkills(cd.data.skills));
                             }
                           })
@@ -986,8 +1039,27 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             {skillsLearned.map((skill, idx) => {
               const teacherSkills = getTeacherSkills(skill.teacherCharacterId);
               const hasTeacher = !!skill.teacherCharacterId;
+              // Filter by prerequisites: only show skills the character can actually learn
+              const learnableFromTeacher = hasTeacher && teacherSkills.length > 0
+                ? getLearnableSkills(teacherSkills, idx)
+                : [];
+              const learnableAll = getAllLearnableSkills(idx);
+              // If the currently selected skill no longer passes prereqs, show a warning
+              const currentSkillBlocked = skill.skillName && (() => {
+                const skillDef = allSkills.find((s) => s.name === skill.skillName || s.name === getBaseSkillName(skill.skillName));
+                if (!skillDef) return false;
+                const effectiveSkills: PurchasedSkill[] = characterPurchasedSkills.map((s) => ({ ...s }));
+                for (let i = 0; i < idx; i++) {
+                  const entry = skillsLearned[i];
+                  if (!entry.skillName) continue;
+                  const existing = effectiveSkills.find((s) => s.skillName === entry.skillName);
+                  if (existing) existing.purchaseCount += entry.count;
+                  else effectiveSkills.push({ skillName: entry.skillName, purchaseCount: entry.count, totalCost: 0 });
+                }
+                return !checkPrerequisites(skill.skillName, skillDef.prerequisite, effectiveSkills, []).met;
+              })();
               return (
-                <div key={idx} className="space-y-2 border border-gray-700 rounded-lg p-3">
+                <div key={idx} className={`space-y-2 border rounded-lg p-3 ${currentSkillBlocked ? "border-red-600 bg-red-900/10" : "border-gray-700"}`}>
                   <div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
                     <div>
                       <label className={labelClass}>Teacher (Character)</label>
@@ -1034,34 +1106,49 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                         {hasTeacher && teacherSkills.length === 0 && (
                           <span className="text-yellow-500 ml-2 text-xs">(teacher has no skills on record)</span>
                         )}
+                        {currentSkillBlocked && (
+                          <span className="text-red-400 ml-2 text-xs">Prerequisites not met!</span>
+                        )}
                       </label>
                       {hasTeacher && teacherSkills.length > 0 ? (
                         <select
                           value={skill.skillName}
                           onChange={(e) => updateSkillLearned(idx, "skillName", e.target.value)}
                           disabled={readOnly}
-                          className={inputClass}
+                          className={`${inputClass} ${currentSkillBlocked ? "border-red-600" : ""}`}
                         >
                           <option value="">Select skill teacher knows...</option>
-                          {teacherSkills.map((name) => (
+                          {learnableFromTeacher.map((name) => (
                             <option key={name} value={name}>{name}</option>
                           ))}
+                          {/* Show blocked skills as disabled for visibility */}
+                          {teacherSkills.filter((s) => !learnableFromTeacher.includes(s)).length > 0 && (
+                            <optgroup label="Prerequisites not met">
+                              {teacherSkills.filter((s) => !learnableFromTeacher.includes(s)).map((name) => (
+                                <option key={name} value={name} disabled>{name}</option>
+                              ))}
+                            </optgroup>
+                          )}
                         </select>
                       ) : (
                         <select
                           value={skill.skillName}
                           onChange={(e) => updateSkillLearned(idx, "skillName", e.target.value)}
                           disabled={readOnly}
-                          className={inputClass}
+                          className={`${inputClass} ${currentSkillBlocked ? "border-red-600" : ""}`}
                         >
                           <option value="">Select skill...</option>
-                          {skillCategories.map((cat) => (
-                            <optgroup key={cat} label={cat}>
-                              {allSkills.filter((s) => s.category === cat).map((s) => (
-                                <option key={s.name} value={s.name}>{s.name}</option>
-                              ))}
-                            </optgroup>
-                          ))}
+                          {skillCategories.map((cat) => {
+                            const catSkills = learnableAll.filter((s) => s.category === cat);
+                            if (catSkills.length === 0) return null;
+                            return (
+                              <optgroup key={cat} label={cat}>
+                                {catSkills.map((s) => (
+                                  <option key={s.name} value={s.name}>{s.name}</option>
+                                ))}
+                              </optgroup>
+                            );
+                          })}
                         </select>
                       )}
                     </div>

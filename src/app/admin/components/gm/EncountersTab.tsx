@@ -668,6 +668,9 @@ function AddNpcModal({
   const [loading, setLoading] = useState(true);
   const [customName, setCustomName] = useState("");
   const [customNotes, setCustomNotes] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
+  const [filter, setFilter] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/gm/monster-book")
@@ -676,17 +679,30 @@ function AddNpcModal({
       .finally(() => setLoading(false));
   }, []);
 
-  const addFromBook = async (monsterBookId: string) => {
-    const res = await fetch(`/api/admin/gm/encounters/${encounterId}/npcs`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ monsterBookId }),
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-    if (res.ok) onAdded();
-    else {
-      const err = await res.json().catch(() => null);
-      alert(err?.error || "Failed");
+  };
+
+  const addSelected = async () => {
+    if (selected.size === 0) return;
+    setAdding(true);
+    let failed = 0;
+    for (const monsterBookId of selected) {
+      const res = await fetch(`/api/admin/gm/encounters/${encounterId}/npcs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ monsterBookId }),
+      });
+      if (!res.ok) failed++;
     }
+    setAdding(false);
+    if (failed > 0) alert(`${failed} of ${selected.size} failed to add`);
+    onAdded();
   };
 
   const addCustom = async () => {
@@ -696,17 +712,28 @@ function AddNpcModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ customName, notes: customNotes }),
     });
-    if (res.ok) onAdded();
-    else {
+    if (res.ok) {
+      setCustomName("");
+      setCustomNotes("");
+      onAdded();
+    } else {
       const err = await res.json().catch(() => null);
       alert(err?.error || "Failed");
     }
   };
 
+  const filtered = filter
+    ? monsters.filter(
+        (m) =>
+          m.name.toLowerCase().includes(filter.toLowerCase()) ||
+          m.category?.toLowerCase().includes(filter.toLowerCase())
+      )
+    : monsters;
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-bold text-white mb-4">Add NPC</h3>
+        <h3 className="text-lg font-bold text-white mb-4">Add NPCs / Monsters</h3>
 
         {/* Custom NPC */}
         <div className="mb-4 p-3 bg-gray-800 rounded border border-gray-700">
@@ -734,39 +761,76 @@ function AddNpcModal({
           </button>
         </div>
 
-        {/* From Monster Book */}
-        <h4 className="text-sm font-bold text-gray-300 mb-2">From Monster Book</h4>
+        {/* From Monster Book — multi-select */}
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-bold text-gray-300">From Monster / NPC Book</h4>
+          {selected.size > 0 && (
+            <span className="text-amber-400 text-xs">{selected.size} selected</span>
+          )}
+        </div>
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter by name or category..."
+          className="w-full px-3 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm mb-2"
+        />
         {loading ? (
           <div className="text-gray-500 text-sm">Loading...</div>
-        ) : monsters.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="text-gray-500 text-sm">
-            No monsters in book. Add them in the Monster Book tab.
+            {monsters.length === 0
+              ? "No entries in book. Add them in the Monster Book or NPC Book tab."
+              : "No matches."}
           </div>
         ) : (
-          <div className="max-h-48 overflow-y-auto space-y-1">
-            {monsters.map((m) => (
-              <div key={m.id} className="flex items-center justify-between p-2 rounded hover:bg-gray-800">
-                <div>
-                  <span className="text-white text-sm">{m.name}</span>
-                  {m.category && (
-                    <span className="text-gray-500 text-xs ml-2">({m.category})</span>
-                  )}
-                </div>
+          <div className="max-h-48 overflow-y-auto space-y-0.5">
+            {filtered.map((m) => {
+              const isSelected = selected.has(m.id);
+              return (
                 <button
-                  onClick={() => addFromBook(m.id)}
-                  className="px-2 py-1 rounded text-xs bg-purple-800 text-purple-300 hover:bg-purple-700"
+                  key={m.id}
+                  type="button"
+                  onClick={() => toggleSelect(m.id)}
+                  className={`w-full flex items-center gap-2 p-2 rounded text-left text-sm ${
+                    isSelected
+                      ? "bg-purple-900/50 border border-purple-700"
+                      : "hover:bg-gray-800 border border-transparent"
+                  }`}
                 >
-                  Add
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    readOnly
+                    className="accent-purple-500 pointer-events-none"
+                  />
+                  <span className="text-white">{m.name}</span>
+                  {m.category && (
+                    <span className={`text-xs ml-auto ${
+                      m.category === "npc" ? "text-cyan-400" : "text-gray-500"
+                    }`}>
+                      {m.category}
+                    </span>
+                  )}
                 </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        <div className="flex justify-end mt-4">
+        <div className="flex gap-3 justify-end mt-4">
           <button onClick={onClose} className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600">
             Close
           </button>
+          {selected.size > 0 && (
+            <button
+              onClick={addSelected}
+              disabled={adding}
+              className="px-4 py-2 rounded bg-purple-700 text-white hover:bg-purple-600 disabled:opacity-50"
+            >
+              {adding ? "Adding..." : `Add ${selected.size} Selected`}
+            </button>
+          )}
         </div>
       </div>
     </div>

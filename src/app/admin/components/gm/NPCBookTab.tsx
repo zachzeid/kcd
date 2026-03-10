@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-interface Monster {
+interface NPC {
   id: string;
   name: string;
   category: string | null;
@@ -13,28 +13,25 @@ interface Monster {
   abilities: string[];
   resistances: string[];
   weaknesses: string[];
-  loot: unknown;
   tags: string[];
   createdAt: string;
 }
 
-const CATEGORIES = [
-  "beast",
-  "undead",
-  "humanoid",
-  "fey",
-  "demon",
-  "elemental",
-  "construct",
-  "aberration",
-  "dragon",
-  "plant",
-  "ooze",
+const NPC_ROLES = [
+  "guard",
+  "merchant",
+  "quest",
+  "tavern",
+  "royal",
+  "clergy",
+  "scholar",
+  "criminal",
+  "recurring",
   "other",
 ];
 
-export default function MonsterBookTab() {
-  const [monsters, setMonsters] = useState<Monster[]>([]);
+export default function NPCBookTab() {
+  const [npcs, setNpcs] = useState<NPC[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -45,22 +42,22 @@ export default function MonsterBookTab() {
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/admin/gm/monster-book?excludeCategory=npc")
+    fetch("/api/admin/gm/monster-book?category=npc")
       .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setMonsters(Array.isArray(data) ? data : []))
-      .catch(() => setMonsters([]))
+      .then((data) => setNpcs(Array.isArray(data) ? data : []))
+      .catch(() => setNpcs([]))
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
-  const filtered = monsters.filter(
-    (m) =>
+  const filtered = npcs.filter(
+    (n) =>
       !filter ||
-      m.name.toLowerCase().includes(filter.toLowerCase()) ||
-      m.category?.toLowerCase().includes(filter.toLowerCase())
+      n.name.toLowerCase().includes(filter.toLowerCase()) ||
+      n.tags.some((t) => t.toLowerCase().includes(filter.toLowerCase()))
   );
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this monster?")) return;
+    if (!confirm("Delete this NPC?")) return;
     const res = await fetch(`/api/admin/gm/monster-book/${id}`, { method: "DELETE" });
     if (res.ok) refresh();
     else {
@@ -74,17 +71,17 @@ export default function MonsterBookTab() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-bold text-white">Monster Book</h2>
+        <h2 className="text-lg font-bold text-white">NPC Book</h2>
         <button
           onClick={() => setShowCreate(!showCreate)}
           className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-medium hover:bg-amber-500"
         >
-          {showCreate ? "Cancel" : "+ New Monster"}
+          {showCreate ? "Cancel" : "+ New NPC"}
         </button>
       </div>
 
       {showCreate && (
-        <MonsterForm
+        <NPCForm
           onSaved={() => {
             setShowCreate(false);
             refresh();
@@ -96,48 +93,43 @@ export default function MonsterBookTab() {
         type="text"
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        placeholder="Filter by name or category..."
+        placeholder="Filter by name or role..."
         className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
       />
 
       {filtered.length === 0 ? (
         <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
           <p className="text-gray-500">
-            {monsters.length === 0 ? "No monsters yet." : "No matches."}
+            {npcs.length === 0 ? "No NPCs yet." : "No matches."}
           </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((m) => (
-            <div key={m.id} className="p-4 bg-gray-900 rounded-lg border border-gray-800">
+          {filtered.map((n) => (
+            <div key={n.id} className="p-4 bg-gray-900 rounded-lg border border-gray-800">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-white font-medium">{m.name}</span>
-                    {m.category && (
-                      <span className="px-2 py-0.5 rounded text-xs bg-purple-900/50 text-purple-300">
-                        {m.category}
-                      </span>
-                    )}
-                    {m.race && (
-                      <span className="text-gray-500 text-xs">{m.race}</span>
+                    <span className="text-white font-medium">{n.name}</span>
+                    {n.race && (
+                      <span className="text-gray-500 text-xs">{n.race}</span>
                     )}
                   </div>
                   <div className="text-gray-400 text-sm mt-1">
-                    Lv.{m.level} &middot; {m.bodyPoints} BP
-                    {m.abilities.length > 0 && (
+                    Lv.{n.level} &middot; {n.bodyPoints} BP
+                    {n.abilities.length > 0 && (
                       <span className="text-gray-500">
-                        {" "}&middot; {m.abilities.length} abilities
+                        {" "}&middot; {n.abilities.length} abilities
                       </span>
                     )}
                   </div>
-                  {m.description && (
-                    <p className="text-gray-500 text-xs mt-1">{m.description}</p>
+                  {n.description && (
+                    <p className="text-gray-500 text-xs mt-1">{n.description}</p>
                   )}
-                  {m.tags.length > 0 && (
+                  {n.tags.length > 0 && (
                     <div className="flex gap-1 mt-2">
-                      {m.tags.map((t) => (
-                        <span key={t} className="px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-400">
+                      {n.tags.filter((t) => t !== "npc").map((t) => (
+                        <span key={t} className="px-1.5 py-0.5 rounded text-xs bg-cyan-900/50 text-cyan-300">
                           {t}
                         </span>
                       ))}
@@ -146,13 +138,13 @@ export default function MonsterBookTab() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setEditId(editId === m.id ? null : m.id)}
+                    onClick={() => setEditId(editId === n.id ? null : n.id)}
                     className="px-2 py-1 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
                   >
-                    {editId === m.id ? "Close" : "Edit"}
+                    {editId === n.id ? "Close" : "Edit"}
                   </button>
                   <button
-                    onClick={() => handleDelete(m.id)}
+                    onClick={() => handleDelete(n.id)}
                     className="px-2 py-1 rounded text-xs bg-red-900 text-red-300 hover:bg-red-800"
                   >
                     Delete
@@ -160,10 +152,10 @@ export default function MonsterBookTab() {
                 </div>
               </div>
 
-              {editId === m.id && (
+              {editId === n.id && (
                 <div className="mt-4 pt-4 border-t border-gray-800">
-                  <MonsterForm
-                    monster={m}
+                  <NPCForm
+                    npc={n}
                     onSaved={() => {
                       setEditId(null);
                       refresh();
@@ -179,52 +171,61 @@ export default function MonsterBookTab() {
   );
 }
 
-function MonsterForm({
-  monster,
+function NPCForm({
+  npc,
   onSaved,
 }: {
-  monster?: Monster;
+  npc?: NPC;
   onSaved: () => void;
 }) {
-  const [name, setName] = useState(monster?.name || "");
-  const [category, setCategory] = useState(monster?.category || "");
-  const [race, setRace] = useState(monster?.race || "");
-  const [level, setLevel] = useState(String(monster?.level || 1));
-  const [bodyPoints, setBodyPoints] = useState(String(monster?.bodyPoints || 1));
-  const [description, setDescription] = useState(monster?.description || "");
-  const [abilities, setAbilities] = useState(monster?.abilities?.join(", ") || "");
-  const [resistances, setResistances] = useState(monster?.resistances?.join(", ") || "");
-  const [weaknesses, setWeaknesses] = useState(monster?.weaknesses?.join(", ") || "");
-  const [tags, setTags] = useState(monster?.tags?.join(", ") || "");
+  const [name, setName] = useState(npc?.name || "");
+  const [race, setRace] = useState(npc?.race || "");
+  const [level, setLevel] = useState(String(npc?.level || 1));
+  const [bodyPoints, setBodyPoints] = useState(String(npc?.bodyPoints || 6));
+  const [description, setDescription] = useState(npc?.description || "");
+  const [abilities, setAbilities] = useState(npc?.abilities?.join(", ") || "");
+  const [resistances, setResistances] = useState(npc?.resistances?.join(", ") || "");
+  const [weaknesses, setWeaknesses] = useState(npc?.weaknesses?.join(", ") || "");
+  const [tags, setTags] = useState(
+    npc?.tags?.filter((t) => t !== "npc").join(", ") || ""
+  );
   const [saving, setSaving] = useState(false);
 
   const parseCSV = (s: string) =>
-    s
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
+    s.split(",").map((x) => x.trim()).filter(Boolean);
+
+  // Toggle role tags
+  const currentTags = parseCSV(tags);
+  const toggleRole = (role: string) => {
+    const updated = currentTags.includes(role)
+      ? currentTags.filter((t) => t !== role)
+      : [...currentTags, role];
+    setTags(updated.join(", "));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
+    const allTags = ["npc", ...parseCSV(tags)];
+
     const payload = {
       name,
-      category: category || null,
+      category: "npc",
       race: race || null,
       level: parseInt(level) || 1,
-      bodyPoints: parseInt(bodyPoints) || 1,
+      bodyPoints: parseInt(bodyPoints) || 6,
       description: description || null,
       abilities: parseCSV(abilities),
       resistances: parseCSV(resistances),
       weaknesses: parseCSV(weaknesses),
-      tags: parseCSV(tags),
+      tags: allTags,
     };
 
-    const url = monster
-      ? `/api/admin/gm/monster-book/${monster.id}`
+    const url = npc
+      ? `/api/admin/gm/monster-book/${npc.id}`
       : "/api/admin/gm/monster-book";
-    const method = monster ? "PATCH" : "POST";
+    const method = npc ? "PATCH" : "POST";
 
     const res = await fetch(url, {
       method,
@@ -233,7 +234,7 @@ function MonsterForm({
     });
     setSaving(false);
     if (res.ok) onSaved();
-    else alert("Failed to save monster");
+    else alert("Failed to save NPC");
   };
 
   return (
@@ -246,23 +247,9 @@ function MonsterForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
+            placeholder="e.g. Town Guard, Innkeeper"
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-400 mb-1">Category</label>
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
-          >
-            <option value="">None</option>
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c.charAt(0).toUpperCase() + c.slice(1)}
-              </option>
-            ))}
-          </select>
         </div>
         <div>
           <label className="block text-xs text-gray-400 mb-1">Race</label>
@@ -270,6 +257,7 @@ function MonsterForm({
             type="text"
             value={race}
             onChange={(e) => setRace(e.target.value)}
+            placeholder="e.g. Human, Dwarf, Elf"
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
         </div>
@@ -295,6 +283,25 @@ function MonsterForm({
             />
           </div>
         </div>
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Roles</label>
+          <div className="flex flex-wrap gap-1">
+            {NPC_ROLES.map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => toggleRole(role)}
+                className={`px-2 py-0.5 rounded text-xs ${
+                  currentTags.includes(role)
+                    ? "bg-cyan-700 text-white"
+                    : "bg-gray-800 text-gray-500 hover:bg-gray-700"
+                }`}
+              >
+                {role}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       <div>
         <label className="block text-xs text-gray-400 mb-1">Description</label>
@@ -302,6 +309,7 @@ function MonsterForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
+          placeholder="NPC background, personality, role in the world..."
           className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
         />
       </div>
@@ -312,7 +320,7 @@ function MonsterForm({
             type="text"
             value={abilities}
             onChange={(e) => setAbilities(e.target.value)}
-            placeholder="e.g. Fire Breath, Claw Attack"
+            placeholder="e.g. Lore Knowledge, Barter"
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
         </div>
@@ -334,23 +342,13 @@ function MonsterForm({
             className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
           />
         </div>
-        <div>
-          <label className="block text-xs text-gray-400 mb-1">Tags (comma-separated)</label>
-          <input
-            type="text"
-            value={tags}
-            onChange={(e) => setTags(e.target.value)}
-            placeholder="e.g. boss, elite, minion"
-            className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm"
-          />
-        </div>
       </div>
       <button
         type="submit"
         disabled={saving || !name}
         className="px-4 py-2 rounded-lg bg-green-700 text-white text-sm font-medium hover:bg-green-600 disabled:opacity-50"
       >
-        {saving ? "Saving..." : monster ? "Update Monster" : "Create Monster"}
+        {saving ? "Saving..." : npc ? "Update NPC" : "Create NPC"}
       </button>
     </form>
   );

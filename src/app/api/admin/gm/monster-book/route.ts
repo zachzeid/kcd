@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canAccessGM } from "@/lib/roles";
 
 // GET: List monster book entries
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,7 +14,15 @@ export async function GET() {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
 
+  const categoryFilter = req.nextUrl.searchParams.get("category");
+  const excludeCategory = req.nextUrl.searchParams.get("excludeCategory");
+
+  const where: Record<string, unknown> = {};
+  if (categoryFilter) where.category = categoryFilter;
+  if (excludeCategory) where.category = { not: excludeCategory };
+
   const entries = await prisma.monsterBookEntry.findMany({
+    where,
     orderBy: { name: "asc" },
   });
 

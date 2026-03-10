@@ -10,6 +10,7 @@
     "db:setup": "sqlite3 prisma/dev.db < prisma/setup.sql && echo 'Database setup complete'",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
+    "db:import-monsters": "tsx scripts/import-monsters.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {
@@ -36,6 +37,7 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "tsx": "^4.21.0",
-    "typescript": "^5"
+    "typescript": "^5",
+    "xlsx": "^0.18.5"
   }
 }

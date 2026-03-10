@@ -42,6 +42,15 @@ interface SignOutRow {
   createdAt: string;
 }
 
+interface SkillVerification {
+  skillName: string;
+  count: number;
+  teacherName: string;
+  teacherCharacterId?: string;
+  status: "verified" | "unverified" | "no_signout";
+  reason: string;
+}
+
 type SubTab = "signouts" | "review" | "characters";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -156,20 +165,65 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
     setActionLoading(null);
   };
 
+  // Skill verifications for the current modal
+  const [skillVerifications, setSkillVerifications] = useState<SkillVerification[]>([]);
+  const [skillConfirmations, setSkillConfirmations] = useState<Record<number, boolean>>({});
+
+  // Fetch skill verifications when modal opens
+  useEffect(() => {
+    if (!processModal) {
+      setSkillVerifications([]);
+      setSkillConfirmations({});
+      return;
+    }
+    const skillsLearned = processModal.skillsLearned ? JSON.parse(processModal.skillsLearned) : [];
+    if (skillsLearned.length === 0) return;
+
+    fetch(`/api/admin/cbd/signouts/${processModal.id}/verify-skills`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((verifications: SkillVerification[]) => {
+        setSkillVerifications(verifications);
+        // Auto-check verified skills
+        const auto: Record<number, boolean> = {};
+        verifications.forEach((v, i) => {
+          auto[i] = v.status === "verified";
+        });
+        setSkillConfirmations(auto);
+      })
+      .catch(() => {});
+  }, [processModal]);
+
   const handleProcess = async (action: "process" | "reject") => {
     if (!processModal) return;
     setProcessing(true);
     try {
+      // Build confirmed skills from checkboxes
+      const confirmedSkills = skillVerifications
+        .filter((_, i) => skillConfirmations[i])
+        .map((v) => ({
+          skillName: v.skillName,
+          count: v.count,
+          teacherName: v.teacherName,
+          confirmedBy: v.status === "verified" ? "auto" : "cbd",
+        }));
+
       const res = await fetch(`/api/admin/cbd/signouts/${processModal.id}/process`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, notes: processNotes.trim() || null }),
+        body: JSON.stringify({
+          action,
+          notes: processNotes.trim() || null,
+          confirmedSkills: action === "process" ? confirmedSkills : undefined,
+        }),
       });
       if (res.ok) {
         const result = await res.json();
         if (action === "process") {
           const lateNote = result.isLateSignOut ? " (late sign-out — NPC XP forfeited)" : "";
-          alert(`Sign-out processed. ${result.xpAwarded} XP awarded.${lateNote}`);
+          const skillNote = result.skillsConfirmed?.length > 0
+            ? ` ${result.skillsConfirmed.length} skill(s) confirmed.`
+            : "";
+          alert(`Sign-out processed. ${result.xpAwarded} XP awarded.${lateNote}${skillNote}`);
         } else {
           alert("Sign-out rejected.");
         }
@@ -468,6 +522,11 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
             setProcessModal(null);
             setProcessNotes("");
           }}
+          skillVerifications={skillVerifications}
+          skillConfirmations={skillConfirmations}
+          onSkillConfirmationChange={(idx, checked) =>
+            setSkillConfirmations((prev) => ({ ...prev, [idx]: checked }))
+          }
         />
       )}
     </div>
@@ -482,6 +541,9 @@ function SignOutModal({
   processing,
   onProcess,
   onClose,
+  skillVerifications,
+  skillConfirmations,
+  onSkillConfirmationChange,
 }: {
   signOut: SignOutRow;
   xpPreview: { eventDays: number; baseXP: number; npcXP: number; totalXP: number; cap: number; isLate: boolean };
@@ -490,6 +552,9 @@ function SignOutModal({
   processing: boolean;
   onProcess: (action: "process" | "reject") => void;
   onClose: () => void;
+  skillVerifications: SkillVerification[];
+  skillConfirmations: Record<number, boolean>;
+  onSkillConfirmationChange: (idx: number, checked: boolean) => void;
 }) {
   const isPending = signOut.status === "pending";
   const skillsLearned = signOut.skillsLearned ? JSON.parse(signOut.skillsLearned) : [];
@@ -606,13 +671,85 @@ function SignOutModal({
           {(skillsLearned.length > 0 || skillsTaught.length > 0) && (
             <Section title="Skills">
               {skillsLearned.length > 0 && (
-                <div className="mb-2">
-                  <div className="text-gray-500 text-xs mb-1">Learned</div>
-                  {skillsLearned.map((s: { skillName: string; count: number; teacherName: string }, i: number) => (
-                    <div key={i} className="text-sm text-gray-300">
-                      {s.skillName} ×{s.count} — taught by {s.teacherName}
+                <div className="mb-3">
+                  <div className="text-gray-500 text-xs mb-2">Learned</div>
+                  <div className="space-y-2">
+                    {skillsLearned.map((s: { skillName: string; count: number; teacherName: string }, i: number) => {
+                      const verification = skillVerifications[i];
+                      const isConfirmed = skillConfirmations[i] ?? false;
+                      return (
+                        <div
+                          key={i}
+                          className={`flex items-start gap-2 p-2 rounded-lg border text-sm ${
+                            verification?.status === "verified"
+                              ? "border-green-800/50 bg-green-900/10"
+                              : verification?.status === "unverified"
+                                ? "border-yellow-800/50 bg-yellow-900/10"
+                                : verification?.status === "no_signout"
+                                  ? "border-red-800/50 bg-red-900/10"
+                                  : "border-gray-700"
+                          }`}
+                        >
+                          {isPending && (
+                            <input
+                              type="checkbox"
+                              checked={isConfirmed}
+                              onChange={(e) => onSkillConfirmationChange(i, e.target.checked)}
+                              className="mt-0.5 accent-amber-500"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-gray-200">
+                              <span className="font-medium">{s.skillName}</span>
+                              {s.count > 1 && <span> ×{s.count}</span>}
+                              <span className="text-gray-500"> — from {s.teacherName}</span>
+                            </div>
+                            {verification && (
+                              <div className={`text-xs mt-0.5 ${
+                                verification.status === "verified"
+                                  ? "text-green-400"
+                                  : verification.status === "unverified"
+                                    ? "text-yellow-400"
+                                    : "text-red-400"
+                              }`}>
+                                {verification.status === "verified" && "Verified — teacher confirmed"}
+                                {verification.status === "unverified" && verification.reason}
+                                {verification.status === "no_signout" && verification.reason}
+                              </div>
+                            )}
+                            {isPending && !verification && (
+                              <div className="text-xs text-gray-600 mt-0.5">Checking...</div>
+                            )}
+                          </div>
+                          {isPending && verification && verification.status !== "verified" && isConfirmed && (
+                            <span className="text-xs text-amber-400 whitespace-nowrap">CBD override</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {isPending && skillVerifications.length > 0 && (
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          skillVerifications.forEach((_, i) => onSkillConfirmationChange(i, true));
+                        }}
+                        className="text-xs text-amber-400 hover:text-amber-300"
+                      >
+                        Confirm All
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          skillVerifications.forEach((v, i) => onSkillConfirmationChange(i, v.status === "verified"));
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-400"
+                      >
+                        Reset to Verified Only
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
               {skillsTaught.length > 0 && (
