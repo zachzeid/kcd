@@ -130,6 +130,186 @@ function StudentSearchDropdown({
   );
 }
 
+/** Single-select dropdown for picking a player name from attendees */
+function PlayerSelectDropdown({
+  attendees,
+  value,
+  onChange,
+  disabled,
+  placeholder,
+}: {
+  attendees: EventAttendee[];
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Deduplicate by playerId to get unique player names
+  const uniquePlayers = Array.from(
+    new Map(attendees.map((a) => [a.playerId, a.playerName])).values()
+  ).sort();
+
+  const filtered = search
+    ? uniquePlayers.filter((name) => name.toLowerCase().includes(search.toLowerCase()))
+    : uniquePlayers;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <input
+        type="text"
+        value={open ? search : value}
+        onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
+        onFocus={() => { setSearch(value); setOpen(true); }}
+        disabled={disabled}
+        placeholder={placeholder}
+        className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+      />
+      {value && !open && !disabled && (
+        <button
+          type="button"
+          onClick={() => { onChange(""); setSearch(""); }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs"
+        >
+          ✕
+        </button>
+      )}
+      {open && filtered.length > 0 && (
+        <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
+          {filtered.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className="w-full text-left px-3 py-2 hover:bg-gray-700 text-sm text-white"
+              onClick={() => { onChange(name); setSearch(""); setOpen(false); }}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && search && (
+        <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 text-gray-500 text-sm">
+          No matching players
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Multi-select pill picker for choosing characters from attendees */
+function CharacterMultiSelect({
+  attendees,
+  selected,
+  onChange,
+  disabled,
+  placeholder,
+  excludeCharacterId,
+}: {
+  attendees: EventAttendee[];
+  selected: string[];
+  onChange: (v: string[]) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  excludeCharacterId?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const available = attendees
+    .filter((a) => a.characterId !== excludeCharacterId)
+    .filter((a) => !selected.includes(a.characterName));
+
+  const filtered = search
+    ? available.filter(
+        (a) =>
+          a.characterName.toLowerCase().includes(search.toLowerCase()) ||
+          a.playerName.toLowerCase().includes(search.toLowerCase())
+      )
+    : available;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref}>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {selected.map((name) => (
+            <span
+              key={name}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-600 text-white"
+            >
+              {name}
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onChange(selected.filter((n) => n !== name))}
+                  className="hover:text-amber-200 text-[10px] ml-0.5"
+                >
+                  ✕
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          disabled={disabled}
+          placeholder={selected.length > 0 ? "Add another..." : placeholder}
+          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+        />
+        {open && filtered.length > 0 && (
+          <div className="absolute z-10 mt-1 w-full max-h-48 overflow-y-auto bg-gray-800 border border-gray-700 rounded-lg shadow-lg">
+            {filtered.map((a) => (
+              <button
+                key={a.characterId}
+                type="button"
+                className="w-full text-left px-3 py-2 hover:bg-gray-700 text-sm text-white"
+                onClick={() => {
+                  onChange([...selected, a.characterName]);
+                  setSearch("");
+                  setOpen(false);
+                }}
+              >
+                <span className="font-medium">{a.characterName}</span>
+                <span className="text-gray-400 ml-2">({a.playerName})</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {open && filtered.length === 0 && search && (
+          <div className="absolute z-10 mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-3 text-gray-500 text-sm">
+            No matching characters
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function SignOutPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = use(params);
   const { data: session, status: sessionStatus } = useSession();
@@ -1136,23 +1316,23 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 </div>
                 <div>
                   <label className={labelClass}>Encounter Runner (if any)</label>
-                  <input
-                    type="text"
+                  <PlayerSelectDropdown
+                    attendees={eventAttendees}
                     value={betweenEventDetails.encounterRunner ?? ""}
-                    onChange={(e) => updateBEDetail("encounterRunner", e.target.value)}
+                    onChange={(v) => updateBEDetail("encounterRunner", v)}
                     disabled={readOnly}
-                    className={inputClass}
+                    placeholder="Select a player..."
                   />
                 </div>
                 <div>
                   <label className={labelClass}>Companions</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.companions ?? ""}
-                    onChange={(e) => updateBEDetail("companions", e.target.value)}
+                  <CharacterMultiSelect
+                    attendees={eventAttendees}
+                    selected={betweenEventDetails.companions ? betweenEventDetails.companions.split(", ").filter(Boolean) : []}
+                    onChange={(names) => updateBEDetail("companions", names.join(", "))}
                     disabled={readOnly}
-                    placeholder="Who is going with you?"
-                    className={inputClass}
+                    placeholder="Search for companions..."
+                    excludeCharacterId={characterId}
                   />
                 </div>
                 <div>
@@ -1368,13 +1548,13 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 </div>
                 <div>
                   <label className={labelClass}>Companions</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.companions ?? ""}
-                    onChange={(e) => updateBEDetail("companions", e.target.value)}
+                  <CharacterMultiSelect
+                    attendees={eventAttendees}
+                    selected={betweenEventDetails.companions ? betweenEventDetails.companions.split(", ").filter(Boolean) : []}
+                    onChange={(names) => updateBEDetail("companions", names.join(", "))}
                     disabled={readOnly}
-                    placeholder="Who is traveling with you?"
-                    className={inputClass}
+                    placeholder="Search for companions..."
+                    excludeCharacterId={characterId}
                   />
                 </div>
               </div>
