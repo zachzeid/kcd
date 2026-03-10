@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import EncountersTab from "./EncountersTab";
 import MonsterBookTab from "./MonsterBookTab";
 import NPCBookTab from "./NPCBookTab";
+import LocationsTab from "./LocationsTab";
 
 interface EventRow {
   id: string;
@@ -49,7 +50,7 @@ interface BEARow {
   createdAt: string;
 }
 
-type SubTab = "events" | "bea" | "encounters" | "monsters" | "npcs" | "lore";
+type SubTab = "events" | "bea" | "encounters" | "monsters" | "npcs" | "locations" | "lore";
 
 export default function GMDepartment() {
   const [subTab, setSubTab] = useState<SubTab>("events");
@@ -265,6 +266,16 @@ export default function GMDepartment() {
           }`}
         >
           NPC Book
+        </button>
+        <button
+          onClick={() => setSubTab("locations")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+            subTab === "locations"
+              ? "bg-amber-600 text-white"
+              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+          }`}
+        >
+          Locations
         </button>
         <button
           onClick={() => setSubTab("lore")}
@@ -602,6 +613,8 @@ export default function GMDepartment() {
         <MonsterBookTab />
       ) : subTab === "npcs" ? (
         <NPCBookTab />
+      ) : subTab === "locations" ? (
+        <LocationsTab />
       ) : (
         <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
           <p className="text-gray-500">Lore Management</p>

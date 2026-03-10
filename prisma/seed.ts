@@ -27,6 +27,7 @@ async function main() {
   await prisma.character.deleteMany();
   await prisma.event.deleteMany();
   await prisma.loreCharacter.deleteMany();
+  await prisma.location.deleteMany();
   await prisma.loreEntry.deleteMany();
   await prisma.user.deleteMany();
   console.log("✓ Wiped all existing data\n");
@@ -1111,6 +1112,223 @@ async function main() {
 
   console.log("✓ No profession earnings (clean slate)");
 
+  // ─── LOCATIONS ──────────────────────────────────────────────────────────────
+  // Extracted from the Barony of Bellanmo map and the full world map
+
+  // Region constants
+  const bellanmo    = "The Barony of Bellanmo";
+  const oshain      = "Kingdom of Oshain";
+  const novashan    = "Kingdom of Novashan";
+  const aspenshae   = "Protectorate of Aspenshae";
+  const quethMarch  = "Queth March";
+  const greenwood   = "Greenwood";
+  const vinYaMara   = "Vin Ya Mara";
+  const tarridear   = "Tarridear";
+  const oluhm       = "Oluhm";
+  const caathlon    = "Caathlon";
+  const baklarholt  = "Baklarholt";
+  const iomall      = "Iomall";
+  const meraki      = "Meraki";
+  const viscara     = "Viscara";
+  const wildemere   = "Wildemere";
+  const gaelbahn    = "Gaelbahn";
+  const cherbourg   = "Cherbourg";
+  const niskara     = "Niskara";
+  const aerenal     = "Aerenal";
+
+  const locations = [
+    // ── Kingdoms & Major Regions ───────────────────────────────────────────
+    { name: "The Barony of Bellanmo",      type: "region",   region: null },
+    { name: "The Regency of Mokinár",      type: "region",   region: null },
+    { name: "Kingdom of Oshain",           type: "region",   region: null },
+    { name: "Kingdom of Novashan",         type: "region",   region: null },
+    { name: "Kingdom of Narrdmyr",         type: "region",   region: null },
+    { name: "Protectorate of Aspenshae",   type: "region",   region: null },
+    { name: "Queth March",                 type: "region",   region: null },
+    { name: "Greenwood",                   type: "region",   region: null },
+    { name: "Drannidwood",                 type: "region",   region: null },
+    { name: "Vin Ya Mara",                 type: "region",   region: null },
+    { name: "Tarridear",                   type: "region",   region: null },
+    { name: "Oluhm",                       type: "region",   region: null },
+    { name: "Caathlon",                    type: "region",   region: null },
+    { name: "Baklarholt",                  type: "region",   region: null },
+    { name: "Historical Bastinc",          type: "region",   region: null },
+    { name: "Iomall",                      type: "region",   region: null },
+    { name: "Meraki",                      type: "region",   region: null },
+    { name: "Viscara",                     type: "region",   region: null },
+    { name: "Wildemere",                   type: "region",   region: null },
+    { name: "Gaelbahn",                    type: "region",   region: null },
+    { name: "Cherbourg",                   type: "region",   region: null },
+    { name: "Niskara",                     type: "region",   region: null },
+    { name: "Aerenal",                     type: "region",   region: null },
+
+    // ── Bodies of Water & Landmarks ────────────────────────────────────────
+    { name: "The Jaded Sea",               type: "landmark", region: null },
+    { name: "Emerald Sea",                 type: "landmark", region: null },
+    { name: "The Northern Baronial Divide", type: "landmark", region: null },
+    { name: "The Southern Baronial Divide", type: "landmark", region: null },
+
+    // ── The Barony of Bellanmo (from detailed Bellanmo map) ────────────────
+    { name: "Nightbourne",       type: "town",  region: bellanmo },
+    { name: "Riversfork",        type: "town",  region: bellanmo },
+    { name: "Redpoole",          type: "town",  region: bellanmo },
+    { name: "Yardsmuth",         type: "town",  region: bellanmo },
+    { name: "Allowen",           type: "town",  region: bellanmo },
+    { name: "Sorvan",            type: "town",  region: bellanmo },
+    { name: "Ilveresh",          type: "town",  region: bellanmo },
+    { name: "New Aladine",       type: "town",  region: bellanmo },
+    { name: "Brenn",             type: "town",  region: bellanmo },
+    { name: "Hallot",            type: "town",  region: bellanmo },
+    { name: "Crossroads",        type: "town",  region: bellanmo },
+    { name: "Fennor",            type: "town",  region: bellanmo },
+    { name: "Gray Haven",        type: "town",  region: bellanmo },
+    { name: "Pelain",            type: "town",  region: bellanmo },
+    { name: "Wyndover",          type: "town",  region: bellanmo },
+    { name: "Lenik",             type: "town",  region: bellanmo },
+    { name: "South Bay",         type: "town",  region: bellanmo },
+    { name: "Ruins of Fenrest",  type: "ruins", region: bellanmo },
+    { name: "Ruins of Tarn",     type: "ruins", region: bellanmo },
+
+    // ── Kingdom of Oshain / Keiryindal ─────────────────────────────────────
+    { name: "Keiryindal",        type: "city",  region: oshain },
+    { name: "Prawn",             type: "town",  region: oshain },
+    { name: "Dilai",             type: "town",  region: oshain },
+    { name: "Urizel",           type: "town",  region: oshain },
+    { name: "Quinia",            type: "town",  region: oshain },
+    { name: "Nalypaaor",         type: "town",  region: oshain },
+    { name: "Orchid",            type: "town",  region: oshain },
+    { name: "Daven",             type: "town",  region: oshain },
+    { name: "Hezairmar",         type: "town",  region: oshain },
+    { name: "Charic",            type: "town",  region: oshain },
+
+    // ── Queth March ────────────────────────────────────────────────────────
+    { name: "Tipicia",           type: "town",  region: quethMarch },
+    { name: "Urlo",              type: "town",  region: quethMarch },
+    { name: "Calcagnir",         type: "town",  region: quethMarch },
+    { name: "Maitaway",          type: "town",  region: quethMarch },
+    { name: "Hlashde",           type: "town",  region: quethMarch },
+
+    // ── Greenwood ──────────────────────────────────────────────────────────
+    { name: "Lecoyant",          type: "town",  region: greenwood },
+    { name: "Ingmenivier",       type: "town",  region: greenwood },
+    { name: "Yscere",            type: "town",  region: greenwood },
+
+    // ── Drannidwood / Aerenal ──────────────────────────────────────────────
+    { name: "Puoria",            type: "town",  region: aerenal },
+    { name: "Incura",            type: "town",  region: aerenal },
+    { name: "Eastufrale",        type: "town",  region: aerenal },
+    { name: "Stolieia",          type: "town",  region: aerenal },
+    { name: "Yathiel",           type: "town",  region: aerenal },
+    { name: "Deve",              type: "town",  region: aerenal },
+    { name: "Hattayaclicia",     type: "town",  region: aerenal },
+    { name: "Munyvayl",          type: "town",  region: aerenal },
+    { name: "Callenátur",        type: "town",  region: aerenal },
+    { name: "Locchem",           type: "town",  region: aerenal },
+
+    // ── Protectorate of Aspenshae ──────────────────────────────────────────
+    { name: "Aderanti",          type: "town",  region: aspenshae },
+    { name: "Perookc",           type: "town",  region: aspenshae },
+    { name: "Vandrac",           type: "town",  region: aspenshae },
+    { name: "Necinei",           type: "town",  region: aspenshae },
+    { name: "Jenoray",           type: "town",  region: aspenshae },
+
+    // ── Vin Ya Mara ────────────────────────────────────────────────────────
+    { name: "Weigarec",          type: "town",  region: vinYaMara },
+    { name: "Sahoa Estay",       type: "town",  region: vinYaMara },
+
+    // ── Tarridear ──────────────────────────────────────────────────────────
+    { name: "Nabrood",           type: "town",  region: tarridear },
+    { name: "Mongol",            type: "town",  region: tarridear },
+    { name: "Parmas",            type: "town",  region: tarridear },
+    { name: "Zoninc",            type: "town",  region: tarridear },
+    { name: "Traveldown",        type: "town",  region: tarridear },
+    { name: "Waloen",            type: "town",  region: tarridear },
+    { name: "Hannon",            type: "town",  region: tarridear },
+    { name: "Doinra",            type: "town",  region: tarridear },
+
+    // ── Oluhm / Caathlon ───────────────────────────────────────────────────
+    { name: "Middleton",         type: "town",  region: oluhm },
+    { name: "Faviaflé",          type: "town",  region: oluhm },
+    { name: "Gunia",             type: "town",  region: caathlon },
+    { name: "Duncreck",          type: "town",  region: caathlon },
+    { name: "Blancham",          type: "town",  region: caathlon },
+    { name: "Biroelin",          type: "town",  region: baklarholt },
+
+    // ── Eastern border towns ───────────────────────────────────────────────
+    { name: "Yishwing",          type: "town",  region: null },
+    { name: "Redishoon",         type: "town",  region: null },
+    { name: "Morandalé",         type: "town",  region: null },
+    { name: "Lorthay",           type: "town",  region: null },
+    { name: "Istifret",          type: "town",  region: null },
+    { name: "Teniti",            type: "town",  region: null },
+    { name: "Siracnia",          type: "town",  region: null },
+    { name: "Melitgs",           type: "town",  region: null },
+    { name: "Nogthdom",          type: "town",  region: null },
+
+    // ── Kingdom of Novashan ────────────────────────────────────────────────
+    { name: "Elnidoen",          type: "town",  region: novashan },
+    { name: "Urhi",              type: "town",  region: novashan },
+    { name: "Freclaen",          type: "town",  region: novashan },
+    { name: "Doinilas",          type: "town",  region: novashan },
+
+    // ── Iomall ─────────────────────────────────────────────────────────────
+    { name: "Quillen's Point",   type: "town",  region: iomall },
+    { name: "Pleasant Creek",    type: "town",  region: iomall },
+    { name: "Lexrye",            type: "town",  region: iomall },
+    { name: "New Lomat",         type: "town",  region: iomall },
+    { name: "Cúlet",             type: "town",  region: iomall },
+    { name: "Lightmoon",         type: "town",  region: iomall },
+    { name: "Craterfoot",        type: "town",  region: iomall },
+    { name: "Redwoodlé",         type: "town",  region: iomall },
+
+    // ── Viscara ────────────────────────────────────────────────────────────
+    { name: "King's Land",       type: "town",  region: viscara },
+    { name: "Deepanwood",        type: "town",  region: viscara },
+    { name: "Marwick",           type: "town",  region: viscara },
+    { name: "Harwick",           type: "town",  region: viscara },
+
+    // ── Niskara ────────────────────────────────────────────────────────────
+    { name: "Vinyard",           type: "town",  region: niskara },
+
+    // ── Meraki ─────────────────────────────────────────────────────────────
+    { name: "Glenmoorc",         type: "town",  region: meraki },
+    { name: "Brunswick",         type: "town",  region: meraki },
+
+    // ── Wildemere ──────────────────────────────────────────────────────────
+    { name: "Chadington",        type: "town",  region: wildemere },
+    { name: "Hepsenwood",        type: "town",  region: wildemere },
+
+    // ── Cherbourg ──────────────────────────────────────────────────────────
+    { name: "Abrafiren",         type: "town",  region: cherbourg },
+    { name: "Devillar",          type: "town",  region: cherbourg },
+    { name: "Basol",             type: "town",  region: cherbourg },
+    { name: "Veamin",            type: "town",  region: cherbourg },
+    { name: "Girwood",           type: "town",  region: cherbourg },
+    { name: "Topping Worth",     type: "town",  region: cherbourg },
+    { name: "Malinek",           type: "town",  region: cherbourg },
+    { name: "Valderbun",         type: "town",  region: cherbourg },
+    { name: "Clawfield",         type: "town",  region: cherbourg },
+
+    // ── Western coast (near Aspenshae / independent) ───────────────────────
+    { name: "High Haven",        type: "town",  region: aspenshae },
+    { name: "Hawk Haven",        type: "town",  region: null },
+    { name: "Whitestall",        type: "town",  region: null },
+    { name: "Jennica",           type: "town",  region: cherbourg },
+    { name: "Green Port",        type: "town",  region: gaelbahn },
+    { name: "Hithal",            type: "town",  region: gaelbahn },
+
+    // ── Gaelbahn / Kingdom of Narrdmyr ─────────────────────────────────────
+    { name: "Willowdale",        type: "town",  region: gaelbahn },
+
+    // ── Kengate area (central forests) ─────────────────────────────────────
+    { name: "Kengate",           type: "town",  region: null },
+  ];
+
+  for (const loc of locations) {
+    await prisma.location.create({ data: loc });
+  }
+  console.log(`✓ Created ${locations.length} locations`);
+
   // ─── DONE ────────────────────────────────────────────────────────────────────
   console.log("\n✅ Seeding complete!\n");
   console.log("Test Accounts (all passwords: password123):");
@@ -1141,6 +1359,7 @@ async function main() {
   console.log("            Sable Nightwhisper, Old Garreth");
   console.log("Sign-outs: none (clean slate for testing)");
   console.log("Lore: 6 entries, 8 lore characters (5 assigned to players)");
+  console.log(`Locations: ${locations.length} (towns, ruins, regions from the Bellanmo map)`);
 }
 
 main()

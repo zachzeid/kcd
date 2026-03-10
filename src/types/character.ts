@@ -85,6 +85,7 @@ export interface Character {
   equipment: PurchasedEquipment[];
   history: string;
   freeLanguage: string;
+  subclass?: string;    // Active subclass name (from src/data/subclasses.ts); only one at a time, changeable once per season
   lifeCredits?: number; // Current remaining life credits (start with 3, +1 per level gained)
   dead?: boolean;       // True when life credits reach 0 — character is permanently dead
 }

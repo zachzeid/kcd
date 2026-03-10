@@ -338,3 +338,15 @@ model MonsterBookEntry {
   @@index([createdBy])
   @@index([category])
 }
+
+// ─── Locations ──────────────────────────────────────────────────────────────
+
+model Location {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  type        String   @default("town") // town, city, ruins, region, landmark
+  region      String?  // e.g. "The Barony of Bellanmo", "The Regency of Mokinár"
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

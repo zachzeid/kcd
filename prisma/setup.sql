@@ -294,3 +294,15 @@ CREATE TABLE IF NOT EXISTS MonsterBookEntry (
 
 CREATE INDEX IF NOT EXISTS MonsterBookEntry_createdBy_idx ON MonsterBookEntry(createdBy);
 CREATE INDEX IF NOT EXISTS MonsterBookEntry_category_idx ON MonsterBookEntry(category);
+
+-- ─── Locations ──────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS Location (
+  id TEXT PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  type TEXT NOT NULL DEFAULT 'town',
+  region TEXT,
+  description TEXT,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
