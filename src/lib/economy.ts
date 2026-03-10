@@ -2,11 +2,11 @@
 
 /** Profession earning rates per event period (in copper; 1 silver = 100 copper) */
 export const PROFESSION_RATES = {
-  novice:      { standard: 800,  winter: 4000 },   // 8 silver / 40 silver
-  trainee:     { standard: 1600, winter: 8000 },   // 16 / 80
-  apprentice:  { standard: 2400, winter: 12000 },  // 24 / 120
-  journeyman:  { standard: 3200, winter: 16000 },  // 32 / 160
-  master:      { standard: 4000, winter: 20000 },   // 40 / 200
+  novice:      { standard: 400,  winter: 2000 },   // 4 silver / 20 silver
+  trainee:     { standard: 800,  winter: 4000 },   // 8 / 40
+  apprentice:  { standard: 1200, winter: 6000 },   // 12 / 60
+  journeyman:  { standard: 1600, winter: 8000 },   // 16 / 80
+  master:      { standard: 2000, winter: 10000 },   // 20 / 100
 } as const;
 
 export type ProfessionTier = keyof typeof PROFESSION_RATES;
@@ -80,7 +80,7 @@ export const CRAFTING_SKILLS = [
   "Craft: Masonry",
   "Craft: Metalsmithing",
   "Craft: Pottery",
-  "Craft: Siege Smithing",
+  "Craft: Siege Engineering",
   "Craft: Tailoring",
   "Craft: Weapon Smithing",
   // Item creation skills
@@ -92,24 +92,50 @@ export const CRAFTING_SKILLS = [
   "Traps",
   "Enchanting",
   "Tanning",
+  // Coin-earning skills (no tags, earn coin between events)
+  "Cartography",
+  "Fortune Telling",
+  "Tracking",
 ] as const;
 
-/** Crafting materials available in the Kanar system */
+/** Crafting materials available in the Kanar system (from craft packets & lore) */
 export const CRAFTING_MATERIALS = {
-  metals: ["Iron", "Steel", "Bronze", "Silver", "Gold", "Mithril", "Adamantine", "Cold Iron"],
-  wood: ["Oak", "Ash", "Yew", "Maple", "Ironwood", "Darkwood", "Willow", "Pine"],
-  leather: ["Leather", "Hardened Leather", "Dragonhide", "Wyvern Hide", "Tanned Hide"],
-  fabric: ["Linen", "Silk", "Wool", "Cotton", "Spidersilk"],
-  stone: ["Granite", "Marble", "Obsidian", "Jade", "Crystal"],
-  other: ["Bone", "Horn", "Chitin", "Glass", "Clay", "Wax", "Rope", "Herbs"],
+  metals: [
+    "Blackened Iron", "Cold Iron", "Copper", "Iron", "Pyrite", "Steel", "Tin", "Zinc",
+    "Blackened Steel", "Alchemical Steel", "Brass", "Bronze", "Elven Steel", "Pure Copper",
+    "Silver", "Chromium", "Electrum", "Radical Copper", "Gold", "Radical Gold", "Pure Gold",
+    "Fae Metal", "Moon Silver", "Dragonsteel", "Shadow Steel", "Mithril", "Sun Steel",
+    "Frost Steel", "Abyssal Steel", "Platinum", "Black Metal", "Star Metal", "Ebonsteel",
+    "Combine Steel",
+  ],
+  wood: [
+    "Wood", "Bronzewood", "Mahogany", "Silverwood", "Ashwood", "Wildwood",
+    "Iron Wood", "Gorshon Wood", "Witchwood", "Livingwood",
+  ],
+  hide: [
+    "Leather Hide", "Scaly Hide", "Chitinous Hide", "Hell Hide",
+    "Treelike Hide", "Wrath Hide", "Elemental Giant Hide",
+    "Bestial Hide", "Fantastic Hide", "Majestic Hide",
+  ],
+  cloth: [
+    "Wool", "Linen", "Silk", "Velvet", "Spider Silk",
+    "Mithril Cloth", "Demonic Silk", "Rimeweave", "Stormsilk",
+    "Sapphire Cloth", "Ruby Cloth",
+  ],
+  stone: [
+    "Glass", "Stone", "Moonstone", "Granite", "Ivory", "Marble", "Alabaster",
+    "Coral", "Lodestone", "Obsidian", "Crystal", "Dunite",
+    "Grey Mordite", "Elemental Stone", "Celestial Granite",
+  ],
+  other: ["Bone", "Clay", "Paper", "Parchment", "Phoenix Porcelain", "Wax"],
 } as const;
 
 /** Flat list of all materials for dropdowns */
 export const ALL_MATERIALS = [
   ...CRAFTING_MATERIALS.metals,
   ...CRAFTING_MATERIALS.wood,
-  ...CRAFTING_MATERIALS.leather,
-  ...CRAFTING_MATERIALS.fabric,
+  ...CRAFTING_MATERIALS.hide,
+  ...CRAFTING_MATERIALS.cloth,
   ...CRAFTING_MATERIALS.stone,
   ...CRAFTING_MATERIALS.other,
 ] as const;
@@ -146,6 +172,7 @@ export const WEAPON_TYPES = {
   "Shields": [
     "Buckler",
     "Shield",
+    "Tower Shield",
   ],
 } as const;
 
@@ -164,7 +191,7 @@ export const CRAFT_SPECIALIZATIONS = [
   "Masonry",
   "Metalsmithing",
   "Pottery",
-  "Siege Smithing",
+  "Siege Engineering",
   "Tailoring",
   "Weapon Smithing",
 ] as const;
