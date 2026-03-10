@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     masterCrafted: item.masterCrafted,
     extraDetails: item.extraDetails,
     status: item.status,
-    characterName: item.character.name,
+    characterName: item.character?.name ?? "Unassigned",
     playerName: item.user.name,
     eventName: item.event?.name ?? null,
     submittedAt: item.createdAt.toISOString(),

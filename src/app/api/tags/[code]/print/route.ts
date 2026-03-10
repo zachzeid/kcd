@@ -35,7 +35,7 @@ export async function POST(
 
   // Authorization: owning player OR economy staff
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  const isOwner = item.character.userId === session.user.id;
+  const isOwner = item.character?.userId === session.user.id;
   const isEcon = user && canAccessEconomy(user.role);
 
   if (!isOwner && !isEcon) {

@@ -198,8 +198,8 @@ model ItemSubmission {
   id               String   @id @default(cuid())
   userId           String
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  characterId      String
-  character        Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  characterId      String?
+  character        Character? @relation(fields: [characterId], references: [id], onDelete: Cascade)
   eventId          String?
   event            Event?   @relation(fields: [eventId], references: [id])
 

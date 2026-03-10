@@ -41,23 +41,25 @@ export async function POST(
     data: { status: "removed" },
   });
 
-  await logAudit({
-    characterId: tag.characterId,
-    actorId: session.user.id,
-    actorName: user.name,
-    actorRole: user.role,
-    action: "tag_removed",
-    details: {
-      tagCode: tag.tagCode,
-      itemName: tag.itemName,
-      itemType: tag.itemType,
-      reason: reason || null,
-    },
-  });
+  if (tag.characterId) {
+    await logAudit({
+      characterId: tag.characterId,
+      actorId: session.user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      action: "tag_removed",
+      details: {
+        tagCode: tag.tagCode,
+        itemName: tag.itemName,
+        itemType: tag.itemType,
+        reason: reason || null,
+      },
+    });
+  }
 
   return NextResponse.json({
     success: true,
     tagCode: tag.tagCode,
-    characterName: tag.character.name,
+    characterName: tag.character?.name ?? "Unassigned",
   });
 }

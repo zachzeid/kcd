@@ -16,26 +16,31 @@ interface Tag {
   secondaryMaterial: string | null;
   masterCrafted: boolean;
   status: string;
-  source: string; // econ_created, gm_encounter, player_signout
-  characterId: string;
-  characterName: string;
+  source: string; // econ_created, staff_request, player_signout
+  characterId: string | null;
+  characterName: string | null;
   playerName: string;
+  // Staff request metadata
+  requestedByRole: string | null;
+  requestedByName: string | null;
+  requestReason: string | null;
+  encounterName: string | null;
   tagUrl: string | null;
   printedAt: string | null;
   createdAt: string;
 }
 
-type SourceFilter = "all" | "player_signout" | "gm_encounter" | "econ_created";
+type SourceFilter = "all" | "player_signout" | "staff_request" | "econ_created";
 
 const SOURCE_LABELS: Record<string, string> = {
   player_signout: "Player",
-  gm_encounter: "GM",
+  staff_request: "Staff",
   econ_created: "Econ",
 };
 
 const SOURCE_COLORS: Record<string, string> = {
   player_signout: "bg-blue-900 text-blue-300",
-  gm_encounter: "bg-purple-900 text-purple-300",
+  staff_request: "bg-purple-900 text-purple-300",
   econ_created: "bg-green-900 text-green-300",
 };
 
@@ -455,7 +460,7 @@ export default function EconomyDepartment() {
                 [
                   ["all", "All"],
                   ["player_signout", "Player Requests"],
-                  ["gm_encounter", "GM Requests"],
+                  ["staff_request", "Staff Requests"],
                   ["econ_created", "Econ Created"],
                 ] as [SourceFilter, string][]
               ).map(([key, label]) => (
@@ -860,6 +865,11 @@ export default function EconomyDepartment() {
                         >
                           {SOURCE_LABELS[tag.source] ?? tag.source}
                         </span>
+                        {tag.source === "staff_request" && tag.requestedByRole && (
+                          <span className="ml-1 text-[10px] text-gray-500">
+                            ({tag.requestedByRole})
+                          </span>
+                        )}
                       </td>
                       <td className="py-2 px-3 text-gray-400 text-xs">
                         {tag.itemType === "coin_award" ? (
@@ -881,8 +891,23 @@ export default function EconomyDepartment() {
                           </span>
                         )}
                       </td>
-                      <td className="py-2 px-3 text-gray-300">{tag.characterName}</td>
-                      <td className="py-2 px-3 text-gray-400">{tag.playerName}</td>
+                      <td className="py-2 px-3 text-gray-300">
+                        {tag.characterName ?? (
+                          <span className="text-gray-500 italic text-xs">
+                            {tag.encounterName ? `Encounter: ${tag.encounterName}` : "Unassigned"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-gray-400">
+                        {tag.source === "staff_request" ? (
+                          <span>
+                            {tag.requestedByName ?? tag.playerName}
+                            {tag.requestReason && (
+                              <span className="block text-[10px] text-gray-600 mt-0.5">{tag.requestReason}</span>
+                            )}
+                          </span>
+                        ) : tag.playerName}
+                      </td>
                       <td className="py-2 px-3 text-center">
                         <span
                           className={`px-2 py-0.5 rounded text-xs font-bold ${

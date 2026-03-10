@@ -849,16 +849,16 @@ function RequestTagsModal({
   onCreated: () => void;
 }) {
   const encounter = encounters.find((e) => e.id === encounterId);
+  const [reason, setReason] = useState("");
   const [items, setItems] = useState<
     Array<{
-      characterId: string;
       requestType: "tag" | "coin";
       itemType: string;
       itemName: string;
       itemDescription: string;
       craftingSkill: string;
       craftingLevel: number;
-      coinAmount: number; // in silver
+      coinAmount: number;
     }>
   >([]);
   const [saving, setSaving] = useState(false);
@@ -867,7 +867,6 @@ function RequestTagsModal({
     setItems([
       ...items,
       {
-        characterId: encounter?.characters[0]?.characterId || "",
         requestType: "tag",
         itemType: "magic_item",
         itemName: "",
@@ -883,10 +882,9 @@ function RequestTagsModal({
     setItems([
       ...items,
       {
-        characterId: encounter?.characters[0]?.characterId || "",
         requestType: "coin",
         itemType: "coin_award",
-        itemName: "GM Encounter Reward",
+        itemName: "Coin for encounter",
         itemDescription: "",
         craftingSkill: "GM Award",
         craftingLevel: 1,
@@ -906,32 +904,29 @@ function RequestTagsModal({
   const handleSubmit = async () => {
     if (items.length === 0) return;
     const invalid = items.find((i) => {
-      if (!i.characterId) return true;
       if (i.requestType === "tag" && !i.itemName.trim()) return true;
       if (i.requestType === "coin" && i.coinAmount <= 0) return true;
       return false;
     });
     if (invalid) {
-      alert("All requests need a character. Tags need a name. Coin awards need an amount > 0.");
+      alert("Tags need a name. Coin needs an amount > 0.");
       return;
     }
     setSaving(true);
 
-    // Convert coin amounts from silver to copper for the API
     const apiItems = items.map((i) => ({
-      characterId: i.characterId,
       itemType: i.itemType,
-      itemName: i.requestType === "coin" ? (i.itemDescription || "GM Encounter Reward") : i.itemName,
-      itemDescription: i.requestType === "coin" ? `${i.coinAmount} silver award` : i.itemDescription,
+      itemName: i.requestType === "coin" ? (i.itemDescription || "Coin for encounter") : i.itemName,
+      itemDescription: i.requestType === "coin" ? `${i.coinAmount} silver` : i.itemDescription,
       craftingSkill: i.craftingSkill,
       craftingLevel: i.craftingLevel,
-      quantity: i.requestType === "coin" ? i.coinAmount * 100 : 1, // coin: store copper in quantity
+      quantity: i.requestType === "coin" ? i.coinAmount * 100 : 1,
     }));
 
     const res = await fetch(`/api/admin/gm/encounters/${encounterId}/tags`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: apiItems }),
+      body: JSON.stringify({ items: apiItems, reason }),
     });
     setSaving(false);
     if (res.ok) {
@@ -940,8 +935,8 @@ function RequestTagsModal({
       const coinCount = items.filter((i) => i.requestType === "coin").length;
       const parts = [];
       if (tagCount > 0) parts.push(`${tagCount} tag(s)`);
-      if (coinCount > 0) parts.push(`${coinCount} coin award(s)`);
-      alert(`${parts.join(" and ")} sent to Economy for approval.`);
+      if (coinCount > 0) parts.push(`${coinCount} coin`);
+      alert(`${parts.join(" and ")} requested from Economy.`);
       onCreated();
     } else {
       const err = await res.json().catch(() => null);
@@ -960,8 +955,21 @@ function RequestTagsModal({
       <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-bold text-white mb-1">Request from Economy</h3>
         <p className="text-gray-400 text-sm mb-4">
-          Request tags, coin awards, or both for encounter characters. Economy Marshal will review.
+          Request tags, coin, or both for this encounter. Economy Marshal will prepare the resources.
+          Tags/coin are handed out during the encounter — players bring them to Econ afterward.
         </p>
+
+        {/* Reason for request */}
+        <div className="mb-4">
+          <label className="block text-xs text-gray-500 mb-1">Reason for request</label>
+          <input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="e.g. Boss loot for Temple Delve, quest rewards..."
+            className="w-full px-2 py-1.5 bg-gray-800 border border-gray-700 rounded text-white text-sm"
+          />
+        </div>
 
         <div className="space-y-3">
           {items.map((item, idx) => (
@@ -975,7 +983,7 @@ function RequestTagsModal({
             >
               <div className="flex justify-between items-center">
                 <span className="text-gray-400 text-xs">
-                  {item.requestType === "coin" ? "Coin Award" : "Tag"} #{idx + 1}
+                  {item.requestType === "coin" ? "Coin" : "Tag"} #{idx + 1}
                 </span>
                 <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300 text-xs">
                   Remove
@@ -984,21 +992,6 @@ function RequestTagsModal({
 
               {item.requestType === "tag" ? (
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Character</label>
-                    <select
-                      value={item.characterId}
-                      onChange={(e) => updateItem(idx, "characterId", e.target.value)}
-                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
-                    >
-                      <option value="">Select...</option>
-                      {encounter.characters.map((c) => (
-                        <option key={c.characterId} value={c.characterId}>
-                          {c.characterName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Item Name *</label>
                     <input
@@ -1024,7 +1017,7 @@ function RequestTagsModal({
                       <option value="misc_craft">Misc Craft</option>
                     </select>
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <label className="block text-xs text-gray-500 mb-1">Description</label>
                     <input
                       type="text"
@@ -1035,22 +1028,7 @@ function RequestTagsModal({
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Character</label>
-                    <select
-                      value={item.characterId}
-                      onChange={(e) => updateItem(idx, "characterId", e.target.value)}
-                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
-                    >
-                      <option value="">Select...</option>
-                      {encounter.characters.map((c) => (
-                        <option key={c.characterId} value={c.characterId}>
-                          {c.characterName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Amount (silver) *</label>
                     <input
@@ -1062,10 +1040,10 @@ function RequestTagsModal({
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Reason</label>
+                    <label className="block text-xs text-gray-500 mb-1">Note</label>
                     <input
                       type="text"
-                      placeholder="e.g. Quest reward"
+                      placeholder="e.g. Quest reward purse"
                       value={item.itemDescription}
                       onChange={(e) => updateItem(idx, "itemDescription", e.target.value)}
                       className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
@@ -1088,7 +1066,7 @@ function RequestTagsModal({
             onClick={addCoin}
             className="px-3 py-1.5 rounded text-xs bg-amber-800 text-amber-300 hover:bg-amber-700"
           >
-            + Add Coin Award
+            + Add Coin
           </button>
         </div>
 

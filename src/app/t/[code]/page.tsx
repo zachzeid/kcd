@@ -26,7 +26,7 @@ export default async function TagPage({ params }: Props) {
   if (!item) return notFound();
 
   const session = await auth();
-  const isOwner = session?.user?.id === item.character.userId;
+  const isOwner = session?.user?.id === item.character?.userId;
   let isEcon = false;
   if (session?.user?.id && !isOwner) {
     const viewer = await prisma.user.findUnique({ where: { id: session.user.id }, select: { role: true } });
@@ -67,7 +67,7 @@ export default async function TagPage({ params }: Props) {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <Detail label="Type" value={typeLabel} />
             <Detail label="Skill" value={`${item.craftingSkill} Lv.${item.craftingLevel}`} />
-            <Detail label="Character" value={item.character.name} />
+            <Detail label="Character" value={item.character?.name ?? "Unassigned"} />
             <Detail label="Player" value={item.user.name} />
             {item.quantity > 1 && <Detail label="Quantity" value={String(item.quantity)} />}
             {item.primaryMaterial && <Detail label="Primary Material" value={item.primaryMaterial} />}

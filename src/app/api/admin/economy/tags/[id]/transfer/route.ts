@@ -39,6 +39,10 @@ export async function POST(
     return NextResponse.json({ error: "Cannot transfer a removed tag" }, { status: 400 });
   }
 
+  if (tag.itemType === "coin_award") {
+    return NextResponse.json({ error: "Coin awards cannot be transferred" }, { status: 400 });
+  }
+
   if (tag.characterId === targetCharacterId) {
     return NextResponse.json({ error: "Tag is already assigned to this character" }, { status: 400 });
   }
@@ -52,7 +56,7 @@ export async function POST(
     return NextResponse.json({ error: "Target character not found" }, { status: 404 });
   }
 
-  const fromName = tag.character.name;
+  const fromName = tag.character?.name ?? "Unassigned";
 
   // Transfer: update characterId and userId to new owner
   await prisma.itemSubmission.update({
@@ -63,20 +67,22 @@ export async function POST(
     },
   });
 
-  // Log on source character
-  await logAudit({
-    characterId: tag.characterId,
-    actorId: session.user.id,
-    actorName: user.name,
-    actorRole: user.role,
-    action: "tag_transferred",
-    details: {
-      tagCode: tag.tagCode,
-      itemName: tag.itemName,
-      direction: "out",
-      toCharacter: targetCharacter.name,
-    },
-  });
+  // Log on source character (skip if no source character, e.g. staff request assignment)
+  if (tag.characterId) {
+    await logAudit({
+      characterId: tag.characterId,
+      actorId: session.user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      action: "tag_transferred",
+      details: {
+        tagCode: tag.tagCode,
+        itemName: tag.itemName,
+        direction: "out",
+        toCharacter: targetCharacter.name,
+      },
+    });
+  }
 
   // Log on target character
   await logAudit({

@@ -57,23 +57,25 @@ export async function POST(
 
   // On approval
   if (action === "approve") {
-    // Coin awards: just mark as approved (physical coin handed to GM for encounter distribution)
+    // Coin awards: just mark as approved (physical coin prepared for staff to hand out)
     // Players deposit coin to econ themselves after the event
     if (item.itemType === "coin_award") {
-      await logAudit({
-        characterId: item.characterId,
-        actorId: session.user.id,
-        actorName: user.name,
-        actorRole: user.role,
-        action: "tag_approved",
-        details: {
-          itemId: id,
-          itemName: item.itemName,
-          itemType: "coin_award",
-          coinAmount: item.quantity,
-          silverAmount: item.quantity / 100,
-        },
-      });
+      if (item.characterId) {
+        await logAudit({
+          characterId: item.characterId,
+          actorId: session.user.id,
+          actorName: user.name,
+          actorRole: user.role,
+          action: "tag_approved",
+          details: {
+            itemId: id,
+            itemName: item.itemName,
+            itemType: "coin_award",
+            coinAmount: item.quantity,
+            silverAmount: item.quantity / 100,
+          },
+        });
+      }
 
       return NextResponse.json({ item: updated });
     }
@@ -81,14 +83,16 @@ export async function POST(
     // Regular tags: assign a sequential tag code and return tag URLs
     const tagCode = await assignTagCode(id);
 
-    await logAudit({
-      characterId: item.characterId,
-      actorId: session.user.id,
-      actorName: user.name,
-      actorRole: user.role,
-      action: "tag_approved",
-      details: { itemId: id, itemName: item.itemName, itemType: item.itemType, tagCode },
-    });
+    if (item.characterId) {
+      await logAudit({
+        characterId: item.characterId,
+        actorId: session.user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        action: "tag_approved",
+        details: { itemId: id, itemName: item.itemName, itemType: item.itemType, tagCode },
+      });
+    }
 
     return NextResponse.json({
       item: { ...updated, tagCode },
@@ -97,14 +101,16 @@ export async function POST(
     });
   }
 
-  await logAudit({
-    characterId: item.characterId,
-    actorId: session.user.id,
-    actorName: user.name,
-    actorRole: user.role,
-    action: "tag_denied",
-    details: { itemId: id, itemName: item.itemName, itemType: item.itemType, notes: notes ?? null },
-  });
+  if (item.characterId) {
+    await logAudit({
+      characterId: item.characterId,
+      actorId: session.user.id,
+      actorName: user.name,
+      actorRole: user.role,
+      action: "tag_denied",
+      details: { itemId: id, itemName: item.itemName, itemType: item.itemType, notes: notes ?? null },
+    });
+  }
 
   return NextResponse.json({ item: updated });
 }

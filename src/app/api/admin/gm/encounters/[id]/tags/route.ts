@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canAccessGM } from "@/lib/roles";
+import { isStaff } from "@/lib/roles";
 
-// POST: Request tags for encounter characters (creates pending ItemSubmissions for econ approval)
+// POST: Request resources (tags/coin) for an encounter (creates pending ItemSubmissions for econ approval)
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,15 +13,15 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (!user || !canAccessGM(user.role)) {
+  if (!user || !isStaff(user.role)) {
     return NextResponse.json({ error: "Access denied" }, { status: 403 });
   }
 
   const { id } = await params;
   const body = await req.json();
-  const { items } = body as {
+  const { items, reason } = body as {
+    reason?: string;
     items: Array<{
-      characterId: string;
       itemType: string;
       itemName: string;
       itemDescription?: string;
@@ -35,35 +35,17 @@ export async function POST(
     return NextResponse.json({ error: "At least one item is required" }, { status: 400 });
   }
 
-  const encounter = await prisma.encounter.findUnique({
-    where: { id },
-    include: { characters: true },
-  });
+  const encounter = await prisma.encounter.findUnique({ where: { id } });
   if (!encounter) {
     return NextResponse.json({ error: "Encounter not found" }, { status: 404 });
   }
 
-  const encounterCharIds = new Set(encounter.characters.map((c) => c.characterId));
-
   const created = [];
   for (const item of items) {
-    if (!encounterCharIds.has(item.characterId)) {
-      return NextResponse.json(
-        { error: `Character ${item.characterId} is not in this encounter` },
-        { status: 400 }
-      );
-    }
-
-    const character = await prisma.character.findUnique({
-      where: { id: item.characterId },
-      select: { userId: true },
-    });
-    if (!character) continue;
-
     const submission = await prisma.itemSubmission.create({
       data: {
-        userId: character.userId,
-        characterId: item.characterId,
+        userId: session.user.id, // requesting staff member
+        characterId: null, // not character-specific; econ transfers tags later
         itemType: item.itemType,
         itemName: item.itemName,
         itemDescription: item.itemDescription || null,
@@ -71,7 +53,14 @@ export async function POST(
         craftingLevel: item.craftingLevel,
         quantity: item.quantity || 1,
         status: "pending",
-        extraDetails: JSON.stringify({ source: "encounter", encounterId: id }),
+        extraDetails: JSON.stringify({
+          source: "encounter",
+          encounterId: id,
+          encounterName: encounter.name,
+          requestedByRole: user.role,
+          requestedByName: user.name,
+          reason: reason || null,
+        }),
       },
     });
     created.push(submission);

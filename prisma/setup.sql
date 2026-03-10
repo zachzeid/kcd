@@ -164,7 +164,7 @@ CREATE INDEX IF NOT EXISTS CharacterSignOut_status_idx ON CharacterSignOut(statu
 CREATE TABLE IF NOT EXISTS ItemSubmission (
   id TEXT PRIMARY KEY,
   userId TEXT NOT NULL,
-  characterId TEXT NOT NULL,
+  characterId TEXT,
   eventId TEXT,
   itemType TEXT NOT NULL,
   itemName TEXT NOT NULL,

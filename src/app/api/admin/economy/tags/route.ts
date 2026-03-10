@@ -47,7 +47,7 @@ export async function GET(req: NextRequest) {
       } catch { /* ignore */ }
     }
     if (extraParsed?.source === "encounter" || tag.itemType === "coin_award") {
-      source = "gm_encounter";
+      source = "staff_request";
     } else if (tag.processedBy && tag.status === "approved" && !tag.extraDetails) {
       // Econ-created tags are immediately approved with processedBy set and no extraDetails
       source = "econ_created";
@@ -67,9 +67,14 @@ export async function GET(req: NextRequest) {
       masterCrafted: tag.masterCrafted,
       status: tag.status,
       source,
-      characterId: tag.character.id,
-      characterName: tag.character.name,
+      characterId: tag.character?.id ?? null,
+      characterName: tag.character?.name ?? null,
       playerName: tag.user.name,
+      // Staff request metadata from extraDetails
+      requestedByRole: (extraParsed?.requestedByRole as string) ?? null,
+      requestedByName: (extraParsed?.requestedByName as string) ?? null,
+      requestReason: (extraParsed?.reason as string) ?? null,
+      encounterName: (extraParsed?.encounterName as string) ?? null,
       tagUrl: tag.tagCode ? getTagUrl(tag.tagCode) : null,
       printedAt: tag.printedAt?.toISOString() ?? null,
       createdAt: tag.createdAt.toISOString(),
