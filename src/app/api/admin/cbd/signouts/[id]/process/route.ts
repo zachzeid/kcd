@@ -78,7 +78,15 @@ export async function POST(
   const daysDiff = Math.ceil((eventEnd.getTime() - eventStart.getTime()) / msPerDay);
   const eventDays = daysDiff >= 1 ? 2 : 1;
 
-  const xpAwarded = calculateSignOutXP(eventDays, signOut.npcMinutes);
+  // 8-day deadline rule (Appendix V): sign-outs submitted more than 8 days
+  // after event end forfeit NPC XP and skill learning on that sign-out
+  const signOutSubmittedAt = new Date(signOut.createdAt);
+  const eventEndDate = signOut.event.endDate ? new Date(signOut.event.endDate) : new Date(signOut.event.date);
+  const daysSinceEvent = (signOutSubmittedAt.getTime() - eventEndDate.getTime()) / msPerDay;
+  const isLateSignOut = daysSinceEvent > 8;
+  const effectiveNpcMinutes = isLateSignOut ? 0 : signOut.npcMinutes;
+
+  const xpAwarded = calculateSignOutXP(eventDays, effectiveNpcMinutes);
 
   // Update sign-out and registration in a transaction
   // Also set checkedOutAt if not already set (player sign-outs without staff checkout)
@@ -107,9 +115,9 @@ export async function POST(
   {
     const character = await prisma.character.findUnique({ where: { id: signOut.characterId } });
     if (character) {
-      // Sum all XP earned from processed registrations
+      // Sum all XP earned from processed registrations for THIS character
       const allRegs = await prisma.eventRegistration.findMany({
-        where: { userId: signOut.userId, xpEarned: { gt: 0 } },
+        where: { characterId: signOut.characterId, xpEarned: { gt: 0 } },
         select: { xpEarned: true },
       });
       const newTotalXP = allRegs.reduce((sum, r) => sum + r.xpEarned, 0);
@@ -215,8 +223,14 @@ export async function POST(
     actorName: user.name,
     actorRole: user.role,
     action: "signout_processed",
-    details: { result: "processed", eventId: signOut.eventId, xpAwarded, coinEarnings: coinEarnings || 0 },
+    details: {
+      result: "processed",
+      eventId: signOut.eventId,
+      xpAwarded,
+      coinEarnings: coinEarnings || 0,
+      ...(isLateSignOut ? { lateSignOut: true, npcMinutesForfeited: signOut.npcMinutes } : {}),
+    },
   });
 
-  return NextResponse.json({ ...updatedSignOut, xpAwarded, coinEarnings });
+  return NextResponse.json({ ...updatedSignOut, xpAwarded, coinEarnings, isLateSignOut });
 }

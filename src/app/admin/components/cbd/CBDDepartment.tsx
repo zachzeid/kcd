@@ -168,7 +168,8 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
       if (res.ok) {
         const result = await res.json();
         if (action === "process") {
-          alert(`Sign-out processed. ${result.xpAwarded} XP awarded.`);
+          const lateNote = result.isLateSignOut ? " (late sign-out — NPC XP forfeited)" : "";
+          alert(`Sign-out processed. ${result.xpAwarded} XP awarded.${lateNote}`);
         } else {
           alert("Sign-out rejected.");
         }
@@ -191,10 +192,14 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
     const msPerDay = 1000 * 60 * 60 * 24;
     const daysDiff = Math.ceil((eventEnd.getTime() - eventStart.getTime()) / msPerDay);
     const eventDays = daysDiff >= 1 ? 2 : 1;
+    // 8-day deadline: late sign-outs forfeit NPC XP (Appendix V)
+    const daysSinceEvent = (new Date(so.createdAt).getTime() - eventEnd.getTime()) / msPerDay;
+    const isLate = daysSinceEvent > 8;
     const baseXP = eventDays * 6;
-    const npcXP = Math.floor(so.npcMinutes / 30);
+    const effectiveNpcMinutes = isLate ? 0 : so.npcMinutes;
+    const npcXP = Math.floor(effectiveNpcMinutes / 30);
     const totalXP = Math.min(baseXP + npcXP, eventDays * 10);
-    return { eventDays, baseXP, npcXP, totalXP, cap: eventDays * 10 };
+    return { eventDays, baseXP, npcXP, totalXP, cap: eventDays * 10, isLate };
   };
 
   return (
@@ -479,7 +484,7 @@ function SignOutModal({
   onClose,
 }: {
   signOut: SignOutRow;
-  xpPreview: { eventDays: number; baseXP: number; npcXP: number; totalXP: number; cap: number };
+  xpPreview: { eventDays: number; baseXP: number; npcXP: number; totalXP: number; cap: number; isLate: boolean };
   notes: string;
   onNotesChange: (v: string) => void;
   processing: boolean;
@@ -539,6 +544,11 @@ function SignOutModal({
                   <div className="text-gray-500 text-xs">Total XP</div>
                 </div>
               </div>
+              {xpPreview.isLate && (
+                <div className="text-red-400 text-xs mt-2 font-medium">
+                  Late sign-out (submitted &gt;8 days after event) — NPC XP forfeited per Appendix V
+                </div>
+              )}
               {xpPreview.baseXP + xpPreview.npcXP > xpPreview.cap && (
                 <div className="text-yellow-400 text-xs mt-2">
                   Capped at {xpPreview.cap} XP ({xpPreview.eventDays} days × 10 max/day)
