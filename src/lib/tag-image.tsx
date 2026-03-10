@@ -9,6 +9,10 @@ const TEXT_COLOR = "#2D1E0F";
 // Ghost color: slightly darker than parchment for OCR readability
 const GHOST_COLOR = "#DDD1C0";
 
+// Business card dimensions: 3.5" × 2" at 300 DPI
+const CARD_WIDTH = 1050;
+const CARD_HEIGHT = 600;
+
 interface TagImageOptions {
   tagCode: number;
   itemType: string;
@@ -17,7 +21,7 @@ interface TagImageOptions {
   craftingLevel: number;
   masterCrafted?: boolean;
   quantity?: number;
-  size?: number;
+  size?: number; // scale factor (1 = 1050×600, 0.5 = 525×300, etc.)
 }
 
 /** Friendly display name for item types */
@@ -37,18 +41,21 @@ const TYPE_TITLES: Record<string, string> = {
 };
 
 export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
-  const size = opts.size ?? 900;
+  const scale = opts.size ? opts.size / 900 : 1; // backwards compat: old callers passed 900
+  const w = Math.round(CARD_WIDTH * scale);
+  const h = Math.round(CARD_HEIGHT * scale);
   const url = `${TAG_BASE_URL}/t/${opts.tagCode}`;
   const title = `K1 ${TYPE_TITLES[opts.itemType] ?? "Item Certificate"}`;
-  const borderOuter = Math.round(size * 0.018);
-  const borderInner = Math.round(size * 0.024);
+
+  // All font sizes and spacing scale relative to card height
+  const s = (pct: number) => Math.round(h * pct);
 
   return new ImageResponse(
     (
       <div
         style={{
-          width: size,
-          height: size,
+          width: w,
+          height: h,
           background: PARCHMENT_BG,
           display: "flex",
           flexDirection: "column",
@@ -62,10 +69,10 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
         <div
           style={{
             position: "absolute",
-            top: borderOuter,
-            left: borderOuter,
-            right: borderOuter,
-            bottom: borderOuter,
+            top: s(0.025),
+            left: s(0.025),
+            right: s(0.025),
+            bottom: s(0.025),
             border: `2px solid ${SEAL_DARK}`,
             display: "flex",
           }}
@@ -74,10 +81,10 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
         <div
           style={{
             position: "absolute",
-            top: borderInner,
-            left: borderInner,
-            right: borderInner,
-            bottom: borderInner,
+            top: s(0.045),
+            left: s(0.045),
+            right: s(0.045),
+            bottom: s(0.045),
             border: `1px solid ${SEAL_DARK}`,
             display: "flex",
           }}
@@ -89,73 +96,61 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            paddingTop: Math.round(size * 0.07),
-            gap: Math.round(size * 0.012),
+            paddingTop: s(0.1),
+            gap: s(0.015),
           }}
         >
           {/* Title */}
           <div
             style={{
               display: "flex",
-              fontSize: Math.round(size * 0.055),
+              fontSize: s(0.1),
               color: TEXT_COLOR,
               fontWeight: 700,
-              marginBottom: Math.round(size * 0.02),
+              marginBottom: s(0.02),
             }}
           >
             {title}
           </div>
 
-          {/* Decorative divider — using ASCII dashes instead of Unicode */}
+          {/* Decorative divider */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              marginBottom: Math.round(size * 0.01),
+              gap: 8,
+              marginBottom: s(0.01),
             }}
           >
-            <div style={{ width: 60, height: 1, background: SEAL_DARK, display: "flex" }} />
-            <div style={{ fontSize: Math.round(size * 0.022), color: SEAL_DARK, display: "flex" }}>
-              ---
-            </div>
-            <div style={{ width: 60, height: 1, background: SEAL_DARK, display: "flex" }} />
+            <div style={{ width: s(0.08), height: 1, background: SEAL_DARK, display: "flex" }} />
+            <div style={{ fontSize: s(0.04), color: SEAL_DARK, display: "flex" }}>---</div>
+            <div style={{ width: s(0.08), height: 1, background: SEAL_DARK, display: "flex" }} />
           </div>
 
           {/* Item Name */}
           <div
             style={{
               display: "flex",
-              fontSize: Math.round(size * 0.042),
+              fontSize: s(0.085),
               color: TEXT_COLOR,
               fontWeight: 600,
-              marginTop: Math.round(size * 0.01),
+              marginTop: s(0.005),
             }}
           >
             {opts.itemName}
           </div>
 
-          {/* Skill & Level */}
+          {/* Skill & Level + Tag Number on same line */}
           <div
             style={{
               display: "flex",
-              fontSize: Math.round(size * 0.034),
+              gap: s(0.06),
+              fontSize: s(0.06),
               color: TEXT_COLOR,
             }}
           >
-            {opts.craftingSkill}: Level {opts.craftingLevel}
-          </div>
-
-          {/* Tag Number */}
-          <div
-            style={{
-              display: "flex",
-              fontSize: Math.round(size * 0.034),
-              color: TEXT_COLOR,
-              marginTop: Math.round(size * 0.005),
-            }}
-          >
-            Tag Number: {opts.tagCode}
+            <span>{opts.craftingSkill}: Level {opts.craftingLevel}</span>
+            <span>Tag #{opts.tagCode}</span>
           </div>
 
           {/* Quantity (if > 1) */}
@@ -163,7 +158,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
             <div
               style={{
                 display: "flex",
-                fontSize: Math.round(size * 0.030),
+                fontSize: s(0.055),
                 color: TEXT_COLOR,
               }}
             >
@@ -176,59 +171,47 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
             <div
               style={{
                 display: "flex",
-                fontSize: Math.round(size * 0.028),
+                fontSize: s(0.05),
                 color: "#6B2FAD",
                 fontWeight: 700,
-                marginTop: Math.round(size * 0.01),
+                marginTop: s(0.01),
                 border: "1px solid #6B2FAD",
-                padding: "4px 16px",
-                borderRadius: 4,
+                padding: `${s(0.008)}px ${s(0.03)}px`,
+                borderRadius: 3,
               }}
             >
               Master Crafted
             </div>
           )}
-
-          {/* Motto */}
-          <div
-            style={{
-              display: "flex",
-              fontSize: Math.round(size * 0.026),
-              color: TEXT_COLOR,
-              marginTop: Math.round(size * 0.025),
-            }}
-          >
-            Wisdom - Courage - Fortitude
-          </div>
         </div>
 
-        {/* Bottom text */}
+        {/* Bottom content */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            paddingBottom: Math.round(size * 0.06),
-            gap: 4,
+            paddingBottom: s(0.08),
+            gap: 2,
           }}
         >
           <div
             style={{
               display: "flex",
-              fontSize: Math.round(size * 0.022),
+              fontSize: s(0.05),
               color: TEXT_COLOR,
             }}
           >
-            Sealed by the Order of K1
+            Wisdom - Courage - Fortitude
           </div>
           <div
             style={{
               display: "flex",
-              fontSize: Math.round(size * 0.022),
+              fontSize: s(0.04),
               color: TEXT_COLOR,
             }}
           >
-            This certificate attests to authenticity.
+            Sealed by the Order of K1
           </div>
         </div>
 
@@ -236,12 +219,12 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
         <div
           style={{
             position: "absolute",
-            bottom: borderOuter + 1,
+            bottom: s(0.025) + 1,
             left: 0,
             right: 0,
             display: "flex",
             justifyContent: "center",
-            fontSize: Math.round(size * 0.025),
+            fontSize: s(0.038),
             color: GHOST_COLOR,
             fontFamily: "sans-serif",
           }}
@@ -251,8 +234,8 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
       </div>
     ),
     {
-      width: size,
-      height: size,
+      width: w,
+      height: h,
     }
   );
 }
