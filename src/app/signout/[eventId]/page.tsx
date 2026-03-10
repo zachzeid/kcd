@@ -8,6 +8,8 @@ import {
   ROLEPLAY_QUALITY_OPTIONS,
   BETWEEN_EVENT_ACTIONS,
   type BetweenEventAction,
+  TRAVEL_METHODS,
+  type TravelMethod,
 } from "@/lib/economy";
 import { skills as allSkills, skillCategories, getBaseSkillName } from "@/data/skills";
 import { checkPrerequisites } from "@/lib/prerequisites";
@@ -374,6 +376,7 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
   const [atmosphereFeedback, setAtmosphereFeedback] = useState("");
   const [betweenEventAction, setBetweenEventAction] = useState<BetweenEventAction>("nothing");
   const [betweenEventDetails, setBetweenEventDetails] = useState<Record<string, string>>({});
+  const [locations, setLocations] = useState<{ id: string; name: string; type: string; region: string | null }[]>([]);
 
   useEffect(() => {
     if (sessionStatus === "unauthenticated") {
@@ -406,6 +409,12 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
         fetch(`/api/events/${eventId}/attendees`)
           .then((r) => r.ok ? r.json() : [])
           .then((attendees: EventAttendee[]) => setEventAttendees(attendees))
+          .catch(() => {});
+
+        // Fetch locations for travel destination dropdown
+        fetch("/api/locations")
+          .then((r) => r.ok ? r.json() : [])
+          .then((locs: { id: string; name: string; type: string; region: string | null }[]) => setLocations(locs))
           .catch(() => {});
 
         // Fetch user's registration for this event
@@ -1611,28 +1620,132 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
 
             {betweenEventAction === "traveling" && (
               <div className="space-y-4 pt-2 border-t border-gray-800">
+                {/* Destination — from Locations table */}
                 <div>
                   <label className={labelClass}>Destination</label>
-                  <input
-                    type="text"
+                  <select
                     value={betweenEventDetails.destination ?? ""}
                     onChange={(e) => updateBEDetail("destination", e.target.value)}
                     disabled={readOnly}
-                    placeholder="Where are you going?"
                     className={inputClass}
-                  />
+                  >
+                    <option value="">Select a destination...</option>
+                    {(() => {
+                      const grouped: Record<string, typeof locations> = {};
+                      for (const loc of locations.filter((l) => l.type !== "region")) {
+                        const key = loc.region || "Other";
+                        if (!grouped[key]) grouped[key] = [];
+                        grouped[key].push(loc);
+                      }
+                      return Object.entries(grouped)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([region, locs]) => (
+                          <optgroup key={region} label={region}>
+                            {locs.sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
+                              <option key={loc.id} value={loc.name}>
+                                {loc.name}{loc.type !== "town" ? ` (${loc.type})` : ""}
+                              </option>
+                            ))}
+                          </optgroup>
+                        ));
+                    })()}
+                  </select>
+                  {/* Fallback for custom destination not in the list */}
+                  {betweenEventDetails.destination === "__custom" || (betweenEventDetails.customDestination && !locations.some((l) => l.name === betweenEventDetails.destination)) ? (
+                    <input
+                      type="text"
+                      value={betweenEventDetails.customDestination ?? ""}
+                      onChange={(e) => updateBEDetail("customDestination", e.target.value)}
+                      disabled={readOnly}
+                      placeholder="Enter destination name..."
+                      className={`${inputClass} mt-2`}
+                    />
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    onClick={() => {
+                      if (betweenEventDetails.destination === "__custom") {
+                        updateBEDetail("destination", "");
+                        updateBEDetail("customDestination", "");
+                      } else {
+                        updateBEDetail("destination", "__custom");
+                      }
+                    }}
+                    className="text-xs text-amber-500 hover:text-amber-400 mt-1 disabled:opacity-50"
+                  >
+                    {betweenEventDetails.destination === "__custom"
+                      ? "← Back to location list"
+                      : "Destination not listed? Enter manually"}
+                  </button>
                 </div>
+
+                {/* Method of Travel — structured per rulebook */}
                 <div>
                   <label className={labelClass}>Method of Travel</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.method ?? ""}
-                    onChange={(e) => updateBEDetail("method", e.target.value)}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {(Object.entries(TRAVEL_METHODS) as [TravelMethod, typeof TRAVEL_METHODS[TravelMethod]][]).map(
+                      ([key, info]) => {
+                        const hasSkill = info.skill ? characterSkills.includes(info.skill) : true;
+                        const locked = info.requiresSkill && !hasSkill;
+                        return (
+                          <label
+                            key={key}
+                            className={`flex flex-col p-3 rounded-lg border transition-colors ${
+                              locked
+                                ? "bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed"
+                                : betweenEventDetails.travelMethod === key
+                                  ? "bg-amber-900/30 border-amber-600 text-amber-300 cursor-pointer"
+                                  : "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600 cursor-pointer"
+                            } ${readOnly ? "cursor-not-allowed opacity-50" : ""}`}
+                          >
+                            <input
+                              type="radio"
+                              name="travelMethod"
+                              value={key}
+                              checked={betweenEventDetails.travelMethod === key}
+                              onChange={() => { if (!locked) updateBEDetail("travelMethod", key); }}
+                              disabled={readOnly || locked}
+                              className="sr-only"
+                            />
+                            <span className="text-sm font-medium">{info.label}</span>
+                            <span className="text-xs text-gray-500 mt-0.5">{info.description}</span>
+                            {info.skill && (
+                              <span className={`text-xs mt-1 ${hasSkill ? "text-green-400" : "text-red-400"}`}>
+                                {hasSkill ? `✓ Has ${info.skill}` : `✗ Requires ${info.skill}`}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      }
+                    )}
+                  </div>
+                  {betweenEventDetails.travelMethod === "other" && (
+                    <input
+                      type="text"
+                      value={betweenEventDetails.travelMethodOther ?? ""}
+                      onChange={(e) => updateBEDetail("travelMethodOther", e.target.value)}
+                      disabled={readOnly}
+                      placeholder="Describe your method of travel..."
+                      className={`${inputClass} mt-2`}
+                    />
+                  )}
+                </div>
+
+                {/* Travel purpose / notes */}
+                <div>
+                  <label className={labelClass}>Purpose of Travel</label>
+                  <textarea
+                    value={betweenEventDetails.travelPurpose ?? ""}
+                    onChange={(e) => updateBEDetail("travelPurpose", e.target.value)}
                     disabled={readOnly}
-                    placeholder="How are you traveling?"
-                    className={inputClass}
+                    placeholder="Why are you traveling? Any specific goals at your destination?"
+                    className={textareaClass}
+                    rows={3}
                   />
                 </div>
+
+                {/* Companions */}
                 <div>
                   <label className={labelClass}>Companions</label>
                   <CharacterMultiSelect
@@ -1644,6 +1757,25 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                     excludeCharacterId={characterId}
                   />
                 </div>
+
+                {/* Relevant travel skills indicator */}
+                {(() => {
+                  const travelSkills = ["Horsemanship", "Seamanship", "Wilderness Survival"];
+                  const hasTravelSkills = travelSkills.filter((s) => characterSkills.includes(s));
+                  if (hasTravelSkills.length === 0) return null;
+                  return (
+                    <div className="bg-gray-800/50 rounded-lg border border-gray-700 p-3">
+                      <div className="text-xs text-gray-400 mb-1">Travel-relevant skills on this character:</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {hasTravelSkills.map((s) => (
+                          <span key={s} className="px-2.5 py-1 rounded-full text-xs font-medium bg-green-900 text-green-300">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
 

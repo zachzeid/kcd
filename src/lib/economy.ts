@@ -224,6 +224,23 @@ export const BETWEEN_EVENT_ACTIONS = {
 export type BetweenEventAction = keyof typeof BETWEEN_EVENT_ACTIONS;
 
 /**
+ * Travel methods for the Traveling between-event action.
+ * Per rulebook:
+ *  - Horsemanship skill → 25% faster off-field travel on horseback
+ *  - Seamanship skill → 25% faster off-field travel by ship
+ *  - Wilderness Survival → relevant when traveling through rural/wild areas
+ */
+export const TRAVEL_METHODS = {
+  on_foot:    { label: "On Foot",   skill: null,           requiresSkill: false, description: "Standard overland travel" },
+  horseback:  { label: "Horseback", skill: "Horsemanship", requiresSkill: true,  description: "Requires Horsemanship — 25% faster travel" },
+  by_ship:    { label: "By Ship",   skill: "Seamanship",   requiresSkill: true,  description: "Requires Seamanship — 25% faster travel" },
+  caravan:    { label: "Caravan",   skill: null,           requiresSkill: false, description: "Traveling with a trade caravan" },
+  other:      { label: "Other",     skill: null,           requiresSkill: false, description: "Specify in notes" },
+} as const;
+
+export type TravelMethod = keyof typeof TRAVEL_METHODS;
+
+/**
  * XP calculation per the Kanar XP Policy:
  * - 6 XP per event day
  * - 1 XP per 30 minutes NPC played
