@@ -59,6 +59,7 @@ export const ITEM_TYPES = {
   weapons: "Weapons",
   misc_craft: "Miscellaneous Craft",
   coin_earning: "Coin Earning",
+  coin_award: "Coin Award",
 } as const;
 
 export type ItemType = keyof typeof ITEM_TYPES;

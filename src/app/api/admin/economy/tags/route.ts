@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
         extraParsed = JSON.parse(tag.extraDetails);
       } catch { /* ignore */ }
     }
-    if (extraParsed?.source === "encounter") {
+    if (extraParsed?.source === "encounter" || tag.itemType === "coin_award") {
       source = "gm_encounter";
     } else if (tag.processedBy && tag.status === "approved" && !tag.extraDetails) {
       // Econ-created tags are immediately approved with processedBy set and no extraDetails

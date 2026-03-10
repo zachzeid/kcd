@@ -83,7 +83,7 @@ const TRANSACTION_TYPE_LABELS: Record<string, string> = {
 };
 
 const ITEM_TYPE_OPTIONS = Object.entries(ITEM_TYPES).filter(
-  ([key]) => key !== "coin_earning"
+  ([key]) => key !== "coin_earning" && key !== "coin_award"
 );
 
 export default function EconomyDepartment() {
@@ -861,9 +861,20 @@ export default function EconomyDepartment() {
                           {SOURCE_LABELS[tag.source] ?? tag.source}
                         </span>
                       </td>
-                      <td className="py-2 px-3 text-gray-400 text-xs">{typeLabel(tag.itemType)}</td>
+                      <td className="py-2 px-3 text-gray-400 text-xs">
+                        {tag.itemType === "coin_award" ? (
+                          <span className="text-amber-400 font-medium">Coin Award</span>
+                        ) : typeLabel(tag.itemType)}
+                      </td>
                       <td className="py-2 px-3 text-white">
-                        {tag.itemName}
+                        {tag.itemType === "coin_award" ? (
+                          <>
+                            <span className="text-amber-300 font-medium">{tag.quantity / 100} silver</span>
+                            {tag.itemDescription && (
+                              <span className="text-gray-500 text-xs ml-2">— {tag.itemDescription}</span>
+                            )}
+                          </>
+                        ) : tag.itemName}
                         {tag.masterCrafted && (
                           <span className="ml-1 px-1 py-0.5 rounded text-[10px] font-bold bg-purple-900 text-purple-300">
                             MC
@@ -904,12 +915,14 @@ export default function EconomyDepartment() {
                         )}
                         {tag.status === "approved" && (
                           <div className="flex gap-1 justify-end">
-                            <button
-                              onClick={() => setTransferTag(tag)}
-                              className="px-2 py-0.5 rounded text-xs bg-blue-800 text-blue-300 hover:bg-blue-700"
-                            >
-                              Transfer
-                            </button>
+                            {tag.itemType !== "coin_award" && (
+                              <button
+                                onClick={() => setTransferTag(tag)}
+                                className="px-2 py-0.5 rounded text-xs bg-blue-800 text-blue-300 hover:bg-blue-700"
+                              >
+                                Transfer
+                              </button>
+                            )}
                             <button
                               onClick={() => setRemoveTag(tag)}
                               className="px-2 py-0.5 rounded text-xs bg-red-800 text-red-300 hover:bg-red-700"

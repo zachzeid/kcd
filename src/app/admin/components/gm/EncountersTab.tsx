@@ -336,13 +336,13 @@ export default function EncountersTab() {
                   )}
                 </div>
 
-                {/* Request Tags button */}
+                {/* Request from Econ button */}
                 <button
                   onClick={() => setTagModal(enc.id)}
                   disabled={enc.characters.length === 0}
                   className="px-3 py-1.5 rounded text-xs bg-green-800 text-green-300 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Request Tags for Econ
+                  Request from Econ
                 </button>
               </div>
             )}
@@ -852,25 +852,45 @@ function RequestTagsModal({
   const [items, setItems] = useState<
     Array<{
       characterId: string;
+      requestType: "tag" | "coin";
       itemType: string;
       itemName: string;
       itemDescription: string;
       craftingSkill: string;
       craftingLevel: number;
+      coinAmount: number; // in silver
     }>
   >([]);
   const [saving, setSaving] = useState(false);
 
-  const addItem = () => {
+  const addTag = () => {
     setItems([
       ...items,
       {
         characterId: encounter?.characters[0]?.characterId || "",
+        requestType: "tag",
         itemType: "magic_item",
         itemName: "",
         itemDescription: "",
         craftingSkill: "GM Award",
         craftingLevel: 1,
+        coinAmount: 0,
+      },
+    ]);
+  };
+
+  const addCoin = () => {
+    setItems([
+      ...items,
+      {
+        characterId: encounter?.characters[0]?.characterId || "",
+        requestType: "coin",
+        itemType: "coin_award",
+        itemName: "GM Encounter Reward",
+        itemDescription: "",
+        craftingSkill: "GM Award",
+        craftingLevel: 1,
+        coinAmount: 10,
       },
     ]);
   };
@@ -885,21 +905,43 @@ function RequestTagsModal({
 
   const handleSubmit = async () => {
     if (items.length === 0) return;
-    const invalid = items.find((i) => !i.itemName.trim() || !i.characterId);
+    const invalid = items.find((i) => {
+      if (!i.characterId) return true;
+      if (i.requestType === "tag" && !i.itemName.trim()) return true;
+      if (i.requestType === "coin" && i.coinAmount <= 0) return true;
+      return false;
+    });
     if (invalid) {
-      alert("All items need a name and character");
+      alert("All requests need a character. Tags need a name. Coin awards need an amount > 0.");
       return;
     }
     setSaving(true);
+
+    // Convert coin amounts from silver to copper for the API
+    const apiItems = items.map((i) => ({
+      characterId: i.characterId,
+      itemType: i.itemType,
+      itemName: i.requestType === "coin" ? (i.itemDescription || "GM Encounter Reward") : i.itemName,
+      itemDescription: i.requestType === "coin" ? `${i.coinAmount} silver award` : i.itemDescription,
+      craftingSkill: i.craftingSkill,
+      craftingLevel: i.craftingLevel,
+      quantity: i.requestType === "coin" ? i.coinAmount * 100 : 1, // coin: store copper in quantity
+    }));
+
     const res = await fetch(`/api/admin/gm/encounters/${encounterId}/tags`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items }),
+      body: JSON.stringify({ items: apiItems }),
     });
     setSaving(false);
     if (res.ok) {
       const data = await res.json();
-      alert(`${data.created} tag request(s) sent to Economy for approval.`);
+      const tagCount = items.filter((i) => i.requestType === "tag").length;
+      const coinCount = items.filter((i) => i.requestType === "coin").length;
+      const parts = [];
+      if (tagCount > 0) parts.push(`${tagCount} tag(s)`);
+      if (coinCount > 0) parts.push(`${coinCount} coin award(s)`);
+      alert(`${parts.join(" and ")} sent to Economy for approval.`);
       onCreated();
     } else {
       const err = await res.json().catch(() => null);
@@ -909,84 +951,146 @@ function RequestTagsModal({
 
   if (!encounter) return null;
 
+  const tagCount = items.filter((i) => i.requestType === "tag").length;
+  const coinCount = items.filter((i) => i.requestType === "coin").length;
+  const totalCount = items.length;
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <div className="bg-gray-900 rounded-lg border border-gray-700 p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-bold text-white mb-1">Request Tags</h3>
+        <h3 className="text-lg font-bold text-white mb-1">Request from Economy</h3>
         <p className="text-gray-400 text-sm mb-4">
-          Create item submissions for Economy Marshal approval.
+          Request tags, coin awards, or both for encounter characters. Economy Marshal will review.
         </p>
 
         <div className="space-y-3">
           {items.map((item, idx) => (
-            <div key={idx} className="p-3 bg-gray-800 rounded border border-gray-700 space-y-2">
+            <div
+              key={idx}
+              className={`p-3 rounded border space-y-2 ${
+                item.requestType === "coin"
+                  ? "bg-amber-900/20 border-amber-800/50"
+                  : "bg-gray-800 border-gray-700"
+              }`}
+            >
               <div className="flex justify-between items-center">
-                <span className="text-gray-400 text-xs">Item #{idx + 1}</span>
+                <span className="text-gray-400 text-xs">
+                  {item.requestType === "coin" ? "Coin Award" : "Tag"} #{idx + 1}
+                </span>
                 <button onClick={() => removeItem(idx)} className="text-red-400 hover:text-red-300 text-xs">
                   Remove
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Character</label>
-                  <select
-                    value={item.characterId}
-                    onChange={(e) => updateItem(idx, "characterId", e.target.value)}
-                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
-                  >
-                    <option value="">Select...</option>
-                    {encounter.characters.map((c) => (
-                      <option key={c.characterId} value={c.characterId}>
-                        {c.characterName}
-                      </option>
-                    ))}
-                  </select>
+
+              {item.requestType === "tag" ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Character</label>
+                    <select
+                      value={item.characterId}
+                      onChange={(e) => updateItem(idx, "characterId", e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                    >
+                      <option value="">Select...</option>
+                      {encounter.characters.map((c) => (
+                        <option key={c.characterId} value={c.characterId}>
+                          {c.characterName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Item Name *</label>
+                    <input
+                      type="text"
+                      value={item.itemName}
+                      onChange={(e) => updateItem(idx, "itemName", e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Type</label>
+                    <select
+                      value={item.itemType}
+                      onChange={(e) => updateItem(idx, "itemType", e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                    >
+                      <option value="magic_item">Magic Item</option>
+                      <option value="weapons">Weapons</option>
+                      <option value="armor">Armor</option>
+                      <option value="potions">Potions</option>
+                      <option value="scrolls">Scrolls</option>
+                      <option value="alchemy">Alchemy</option>
+                      <option value="misc_craft">Misc Craft</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Description</label>
+                    <input
+                      type="text"
+                      value={item.itemDescription}
+                      onChange={(e) => updateItem(idx, "itemDescription", e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Item Name *</label>
-                  <input
-                    type="text"
-                    value={item.itemName}
-                    onChange={(e) => updateItem(idx, "itemName", e.target.value)}
-                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
-                  />
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Character</label>
+                    <select
+                      value={item.characterId}
+                      onChange={(e) => updateItem(idx, "characterId", e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                    >
+                      <option value="">Select...</option>
+                      {encounter.characters.map((c) => (
+                        <option key={c.characterId} value={c.characterId}>
+                          {c.characterName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Amount (silver) *</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.coinAmount}
+                      onChange={(e) => updateItem(idx, "coinAmount", parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Reason</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Quest reward"
+                      value={item.itemDescription}
+                      onChange={(e) => updateItem(idx, "itemDescription", e.target.value)}
+                      className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Type</label>
-                  <select
-                    value={item.itemType}
-                    onChange={(e) => updateItem(idx, "itemType", e.target.value)}
-                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
-                  >
-                    <option value="magic_item">Magic Item</option>
-                    <option value="weapons">Weapons</option>
-                    <option value="armor">Armor</option>
-                    <option value="potions">Potions</option>
-                    <option value="scrolls">Scrolls</option>
-                    <option value="alchemy">Alchemy</option>
-                    <option value="misc_craft">Misc Craft</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Description</label>
-                  <input
-                    type="text"
-                    value={item.itemDescription}
-                    onChange={(e) => updateItem(idx, "itemDescription", e.target.value)}
-                    className="w-full px-2 py-1.5 bg-gray-900 border border-gray-700 rounded text-white text-sm"
-                  />
-                </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
 
-        <button
-          onClick={addItem}
-          className="mt-3 px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
-        >
-          + Add Item
-        </button>
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={addTag}
+            className="px-3 py-1.5 rounded text-xs bg-gray-700 text-gray-300 hover:bg-gray-600"
+          >
+            + Add Tag
+          </button>
+          <button
+            onClick={addCoin}
+            className="px-3 py-1.5 rounded text-xs bg-amber-800 text-amber-300 hover:bg-amber-700"
+          >
+            + Add Coin Award
+          </button>
+        </div>
 
         <div className="flex gap-3 justify-end mt-4">
           <button onClick={onClose} className="px-4 py-2 rounded bg-gray-700 text-white hover:bg-gray-600">
@@ -994,10 +1098,16 @@ function RequestTagsModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={saving || items.length === 0}
+            disabled={saving || totalCount === 0}
             className="px-4 py-2 rounded bg-green-700 text-white hover:bg-green-600 disabled:opacity-50"
           >
-            {saving ? "Submitting..." : `Submit ${items.length} Tag Request(s)`}
+            {saving
+              ? "Submitting..."
+              : `Submit ${totalCount} Request${totalCount !== 1 ? "s" : ""}${
+                  tagCount > 0 && coinCount > 0
+                    ? ` (${tagCount} tag, ${coinCount} coin)`
+                    : ""
+                }`}
           </button>
         </div>
       </div>
