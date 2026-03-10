@@ -14,6 +14,53 @@ function formatSilver(copper: number): string {
   return `${silver.toFixed(1)} silver`;
 }
 
+interface AuditLogEntry {
+  id: string;
+  actorName: string;
+  actorRole: string;
+  action: string;
+  details: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+function formatAuditAction(action: string, details: Record<string, unknown> | null): string {
+  switch (action) {
+    case "created": return "created this character.";
+    case "updated": return "updated this character.";
+    case "submitted": return "submitted this character for review.";
+    case "approved": return "approved this character.";
+    case "rejected": return "rejected this character.";
+    case "checked_in": return "checked in to an event.";
+    case "checked_out": return "checked out of an event.";
+    case "signout_submitted": return "submitted a sign-out request.";
+    case "signout_processed": return "processed the sign-out.";
+    case "reactivated": return "reactivated this character.";
+    case "inactive": return "marked this character as inactive.";
+    case "deleted": return "deleted this character.";
+    case "level_up": {
+      const newLevel = details?.newLevel;
+      return newLevel ? `leveled up to level ${newLevel}.` : "leveled up.";
+    }
+    case "registered": return "registered for an event.";
+    case "skill_confirmed": {
+      const skill = details?.skillName;
+      return skill ? `confirmed skill: ${skill}.` : "confirmed a skill.";
+    }
+    case "life_credit_lost": {
+      const lost = details?.creditsLost;
+      const after = details?.creditsAfter;
+      return lost ? `lost ${lost} life credit${Number(lost) > 1 ? "s" : ""} (${after} remaining).` : "lost a life credit.";
+    }
+    case "character_died": return "has permanently died (0 life credits).";
+    case "tag_created": return "created a tag.";
+    case "tag_transferred": return "transferred a tag.";
+    case "tag_removed": return "removed a tag.";
+    case "tag_approved": return "approved a tag.";
+    case "tag_denied": return "denied a tag.";
+    default: return `${action.replace(/_/g, " ")}.`;
+  }
+}
+
 interface CharacterData {
   name: string;
   race: string;
@@ -142,6 +189,8 @@ export default function CharacterSummaryPage() {
   const [loreMentions, setLoreMentions] = useState<LoreMention[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [showAuditLog, setShowAuditLog] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditSearch, setAuditSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -158,12 +207,16 @@ export default function CharacterSummaryPage() {
       fetch(`/api/characters/${params.id}/items`).then((r) =>
         r.ok ? r.json() : { items: [] }
       ),
+      fetch(`/api/characters/${params.id}/log`).then((r) =>
+        r.ok ? r.json() : []
+      ),
     ])
-      .then(([charData, historyData, bankData, itemsData]) => {
+      .then(([charData, historyData, bankData, itemsData, logData]) => {
         setCharacter(charData);
         setHistory(historyData);
         setBank(bankData?.bank ?? null);
         setTags(itemsData?.items ?? []);
+        setAuditLogs(Array.isArray(logData) ? logData : []);
         // Fetch lore mentions by character name
         if (charData?.data?.name) {
           fetch(`/api/lore?character=${encodeURIComponent(charData.data.name)}`)
@@ -568,6 +621,67 @@ export default function CharacterSummaryPage() {
                   </p>
                 </Link>
               ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Activity Log */}
+        {auditLogs.length > 0 && (
+          <CollapsibleSection title="Activity Log" count={auditLogs.length} defaultOpen={false}>
+            <div className="mb-3">
+              <input
+                type="text"
+                value={auditSearch}
+                onChange={(e) => setAuditSearch(e.target.value)}
+                placeholder="Search activity log..."
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded text-white text-sm placeholder-gray-500"
+              />
+            </div>
+            <div className="space-y-1 max-h-96 overflow-y-auto">
+              {auditLogs
+                .filter((log) => {
+                  if (!auditSearch.trim()) return true;
+                  const q = auditSearch.toLowerCase();
+                  const text = `${log.actorName} ${log.actorRole} ${log.action} ${formatAuditAction(log.action, log.details)}`.toLowerCase();
+                  const dateStr = new Date(log.createdAt).toLocaleString().toLowerCase();
+                  const detailsStr = log.details ? JSON.stringify(log.details).toLowerCase() : "";
+                  return text.includes(q) || dateStr.includes(q) || detailsStr.includes(q);
+                })
+                .map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-start gap-2 text-xs text-gray-400 py-1.5 border-b border-gray-800/50"
+                  >
+                    <span className="text-gray-600 shrink-0 w-36">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </span>
+                    <span>
+                      <span className="text-gray-300 font-medium">{log.actorName}</span>
+                      {log.actorRole !== "user" && (
+                        <span className="ml-1 text-amber-500/70">({log.actorRole})</span>
+                      )}
+                      {" "}
+                      <span
+                        className={
+                          log.action === "approved" ? "text-green-400" :
+                          log.action === "rejected" ? "text-red-400" :
+                          log.action === "submitted" ? "text-blue-400" :
+                          log.action === "level_up" ? "text-yellow-300" :
+                          log.action === "life_credit_lost" ? "text-red-300" :
+                          log.action === "character_died" ? "text-red-500 font-bold" :
+                          log.action === "skill_confirmed" ? "text-cyan-300" :
+                          log.action === "signout_processed" ? "text-green-300" :
+                          "text-gray-400"
+                        }
+                      >
+                        {formatAuditAction(log.action, log.details)}
+                      </span>
+                      {log.details && typeof log.details.notes === "string" && (
+                        <span className="ml-1 text-gray-500">— {log.details.notes}</span>
+                      )}
+                    </span>
+                  </div>
+                ))}
             </div>
           </CollapsibleSection>
         )}

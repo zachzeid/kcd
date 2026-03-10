@@ -31,7 +31,7 @@ export async function GET(
   const logs = await prisma.auditLog.findMany({
     where: { characterId: id },
     orderBy: { createdAt: "desc" },
-    take: 50,
+    take: 200,
   });
 
   return NextResponse.json(
