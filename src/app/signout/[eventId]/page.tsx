@@ -1686,17 +1686,14 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {(Object.entries(TRAVEL_METHODS) as [TravelMethod, typeof TRAVEL_METHODS[TravelMethod]][]).map(
                       ([key, info]) => {
-                        const hasSkill = info.skill ? characterSkills.includes(info.skill) : true;
-                        const locked = info.requiresSkill && !hasSkill;
+                        const hasSkill = info.skill ? characterSkills.includes(info.skill) : null;
                         return (
                           <label
                             key={key}
-                            className={`flex flex-col p-3 rounded-lg border transition-colors ${
-                              locked
-                                ? "bg-gray-900 border-gray-800 text-gray-600 cursor-not-allowed"
-                                : betweenEventDetails.travelMethod === key
-                                  ? "bg-amber-900/30 border-amber-600 text-amber-300 cursor-pointer"
-                                  : "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600 cursor-pointer"
+                            className={`flex flex-col p-3 rounded-lg border cursor-pointer transition-colors ${
+                              betweenEventDetails.travelMethod === key
+                                ? "bg-amber-900/30 border-amber-600 text-amber-300"
+                                : "bg-gray-800 border-gray-700 text-gray-300 hover:border-gray-600"
                             } ${readOnly ? "cursor-not-allowed opacity-50" : ""}`}
                           >
                             <input
@@ -1704,15 +1701,15 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                               name="travelMethod"
                               value={key}
                               checked={betweenEventDetails.travelMethod === key}
-                              onChange={() => { if (!locked) updateBEDetail("travelMethod", key); }}
-                              disabled={readOnly || locked}
+                              onChange={() => updateBEDetail("travelMethod", key)}
+                              disabled={readOnly}
                               className="sr-only"
                             />
                             <span className="text-sm font-medium">{info.label}</span>
                             <span className="text-xs text-gray-500 mt-0.5">{info.description}</span>
                             {info.skill && (
-                              <span className={`text-xs mt-1 ${hasSkill ? "text-green-400" : "text-red-400"}`}>
-                                {hasSkill ? `✓ Has ${info.skill}` : `✗ Requires ${info.skill}`}
+                              <span className={`text-xs mt-1 ${hasSkill ? "text-green-400" : "text-yellow-500"}`}>
+                                {hasSkill ? `✓ Has ${info.skill} — 25% faster` : `No ${info.skill} — standard speed`}
                               </span>
                             )}
                           </label>

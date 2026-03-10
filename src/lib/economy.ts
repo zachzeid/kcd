@@ -231,11 +231,11 @@ export type BetweenEventAction = keyof typeof BETWEEN_EVENT_ACTIONS;
  *  - Wilderness Survival → relevant when traveling through rural/wild areas
  */
 export const TRAVEL_METHODS = {
-  on_foot:    { label: "On Foot",   skill: null,           requiresSkill: false, description: "Standard overland travel" },
-  horseback:  { label: "Horseback", skill: "Horsemanship", requiresSkill: true,  description: "Requires Horsemanship — 25% faster travel" },
-  by_ship:    { label: "By Ship",   skill: "Seamanship",   requiresSkill: true,  description: "Requires Seamanship — 25% faster travel" },
-  caravan:    { label: "Caravan",   skill: null,           requiresSkill: false, description: "Traveling with a trade caravan" },
-  other:      { label: "Other",     skill: null,           requiresSkill: false, description: "Specify in notes" },
+  on_foot:    { label: "On Foot",   skill: null,           description: "Standard overland travel" },
+  horseback:  { label: "Horseback", skill: "Horsemanship", description: "25% faster with Horsemanship skill" },
+  by_ship:    { label: "By Ship",   skill: "Seamanship",   description: "25% faster with Seamanship skill" },
+  caravan:    { label: "Caravan",   skill: null,           description: "Traveling with a trade caravan" },
+  other:      { label: "Other",     skill: null,           description: "Specify in notes" },
 } as const;
 
 export type TravelMethod = keyof typeof TRAVEL_METHODS;
