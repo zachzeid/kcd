@@ -5,7 +5,7 @@ import { canEditOwnCharacters } from "@/lib/roles";
 import { logAudit } from "@/lib/audit";
 import { refreshInactiveForUser } from "@/lib/inactive";
 
-// GET: List current user's characters (with unread audit logs)
+// GET: List current user's characters
 export async function GET() {
   const session = await auth();
   if (!session?.user?.id) {
@@ -28,18 +28,6 @@ export async function GET() {
       submittedAt: true,
       createdAt: true,
       updatedAt: true,
-      auditLogs: {
-        orderBy: { createdAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          actorName: true,
-          actorRole: true,
-          action: true,
-          details: true,
-          createdAt: true,
-        },
-      },
     },
   });
 

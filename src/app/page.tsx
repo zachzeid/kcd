@@ -20,15 +20,6 @@ import Link from "next/link";
 const STARTING_SKILL_POINTS = 140;
 const STARTING_SILVER = 50;
 
-interface AuditLogEntry {
-  id: string;
-  actorName: string;
-  actorRole: string;
-  action: string;
-  details: Record<string, unknown> | null;
-  createdAt: string;
-}
-
 interface SavedCharEntry {
   id: string;
   name: string;
@@ -38,45 +29,6 @@ interface SavedCharEntry {
   submittedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  auditLogs: AuditLogEntry[];
-}
-
-function formatAuditAction(action: string, details: Record<string, unknown> | null): string {
-  switch (action) {
-    case "created": return "created this character.";
-    case "updated": return "updated this character.";
-    case "submitted": return "submitted this character for review.";
-    case "approved": return "approved this character.";
-    case "rejected": return "rejected this character.";
-    case "checked_in": return "checked in to an event.";
-    case "checked_out": return "checked out of an event.";
-    case "signout_submitted": return "submitted a sign-out request.";
-    case "signout_processed": return "processed the sign-out.";
-    case "reactivated": return "reactivated this character.";
-    case "inactive": return "marked this character as inactive.";
-    case "deleted": return "deleted this character.";
-    case "level_up": {
-      const newLevel = details?.newLevel;
-      return newLevel ? `leveled up to level ${newLevel}.` : "leveled up.";
-    }
-    case "registered": return "registered for an event.";
-    case "status_change": {
-      const to = details?.to;
-      return to ? `changed status to ${String(to).replace(/_/g, " ")}.` : "changed the status.";
-    }
-    case "tag_created": return "created a tag.";
-    case "tag_transferred": return "transferred a tag.";
-    case "tag_removed": return "removed a tag.";
-    case "tag_approved": return "approved a tag.";
-    case "tag_denied": return "denied a tag.";
-    case "life_credit_lost": {
-      const lost = details?.creditsLost;
-      const after = details?.creditsAfter;
-      return lost ? `lost ${lost} life credit${Number(lost) > 1 ? "s" : ""} (${after} remaining).` : "lost a life credit.";
-    }
-    case "character_died": return "has permanently died (0 life credits).";
-    default: return `${action.replace(/_/g, " ")}.`;
-  }
 }
 
 export default function Home() {
@@ -421,7 +373,6 @@ export default function Home() {
                   const statusInfo = CHARACTER_STATUSES[c.status] ?? CHARACTER_STATUSES.draft;
                   const editable = userCanEditOwn && canPlayerEdit(c.status, c.inactive);
                   const submittable = userCanEditOwn && canSubmitForReview(c.status, c.inactive);
-                  const staffLogs = c.auditLogs?.filter((l) => l.actorRole !== "user") ?? [];
                   return (
                     <div
                       key={c.id}
@@ -499,46 +450,6 @@ export default function Home() {
                         {c.submittedAt && ` | Submitted ${new Date(c.submittedAt).toLocaleString()}`}
                       </div>
 
-                      {staffLogs.length > 0 && (
-                        <details className="mt-2">
-                          <summary className="text-amber-400 text-xs cursor-pointer hover:underline">
-                            Activity log ({c.auditLogs.length} entries)
-                          </summary>
-                          <div className="mt-1 space-y-1">
-                            {c.auditLogs.map((log) => (
-                              <div key={log.id} className="flex items-start gap-2 text-xs text-gray-400 py-0.5 border-b border-gray-800/50">
-                                <span className="text-gray-600 shrink-0">
-                                  {new Date(log.createdAt).toLocaleString()}
-                                </span>
-                                <span>
-                                  <span className="text-gray-300 font-medium">{log.actorName}</span>
-                                  {log.actorRole !== "user" && (
-                                    <span className="ml-1 text-amber-500/70">({log.actorRole})</span>
-                                  )}
-                                  {" "}
-                                  <span className={
-                                    log.action === "approved" ? "text-green-400" :
-                                    log.action === "rejected" ? "text-red-400" :
-                                    log.action === "submitted" ? "text-blue-400" :
-                                    log.action === "checked_in" ? "text-blue-300" :
-                                    log.action === "checked_out" ? "text-indigo-300" :
-                                    log.action === "signout_submitted" ? "text-purple-300" :
-                                    log.action === "signout_processed" ? "text-green-300" :
-                                    log.action === "reactivated" ? "text-orange-300" :
-                                    log.action === "level_up" ? "text-yellow-300" :
-                                    "text-gray-400"
-                                  }>
-                                    {formatAuditAction(log.action, log.details)}
-                                  </span>
-                                  {log.details && typeof log.details.notes === "string" && (
-                                    <span className="ml-1 text-gray-500">— {log.details.notes}</span>
-                                  )}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      )}
                     </div>
                   );
                 })}
