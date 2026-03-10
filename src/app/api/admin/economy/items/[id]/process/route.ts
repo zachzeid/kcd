@@ -57,46 +57,9 @@ export async function POST(
 
   // On approval
   if (action === "approve") {
-    // Coin awards: deposit to character's bank instead of creating a tag
+    // Coin awards: just mark as approved (physical coin handed to GM for encounter distribution)
+    // Players deposit coin to econ themselves after the event
     if (item.itemType === "coin_award") {
-      const copperAmount = item.quantity; // quantity stores copper amount for coin awards
-      const { startingBankData } = await import("@/lib/economy");
-
-      let bank = await prisma.playerBank.findUnique({
-        where: { characterId: item.characterId },
-      });
-
-      if (!bank) {
-        const character = await prisma.character.findUnique({ where: { id: item.characterId } });
-        const charData = character?.data ? JSON.parse(character.data as string) : {};
-        const { startingBalance, transactions } = startingBankData(charData.silverSpent ?? 0);
-
-        bank = await prisma.playerBank.create({
-          data: { characterId: item.characterId, balance: startingBalance },
-        });
-
-        for (const txn of transactions) {
-          await prisma.bankTransaction.create({
-            data: { bankId: bank.id, type: txn.type, amount: txn.amount, description: txn.description },
-          });
-        }
-      }
-
-      await prisma.playerBank.update({
-        where: { id: bank.id },
-        data: { balance: { increment: copperAmount } },
-      });
-
-      await prisma.bankTransaction.create({
-        data: {
-          bankId: bank.id,
-          type: "deposit",
-          amount: copperAmount,
-          description: item.itemName || "GM Encounter Reward",
-          processedBy: session.user.id,
-        },
-      });
-
       await logAudit({
         characterId: item.characterId,
         actorId: session.user.id,
@@ -107,12 +70,12 @@ export async function POST(
           itemId: id,
           itemName: item.itemName,
           itemType: "coin_award",
-          coinAmount: copperAmount,
-          silverAmount: copperAmount / 100,
+          coinAmount: item.quantity,
+          silverAmount: item.quantity / 100,
         },
       });
 
-      return NextResponse.json({ item: updated, coinDeposited: copperAmount });
+      return NextResponse.json({ item: updated });
     }
 
     // Regular tags: assign a sequential tag code and return tag URLs
