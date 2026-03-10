@@ -85,4 +85,6 @@ export interface Character {
   equipment: PurchasedEquipment[];
   history: string;
   freeLanguage: string;
+  lifeCredits?: number; // Current remaining life credits (start with 3, +1 per level gained)
+  dead?: boolean;       // True when life credits reach 0 — character is permanently dead
 }

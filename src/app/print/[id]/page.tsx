@@ -61,6 +61,8 @@ export default function PrintPage() {
   const classInfo = classes.find((c) => c.name === character.characterClass);
   const raceBP = raceInfo?.bodyPointsByLevel[character.level - 1] ?? 0;
   const classBP = classInfo?.bodyPointsByLevel[character.level - 1] ?? 0;
+  const lifeCredits = character.lifeCredits ?? (3 + (character.level - 1));
+  const isDead = !!character.dead;
 
   // Calculate XP progression
   const currentLevelXP = xpTable[character.level - 1] ?? 0;
@@ -105,10 +107,18 @@ export default function PrintPage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
+      {isDead && (
+        <div style={{ background: "#fce4e4", border: "2px solid #c00", borderRadius: "4px", padding: "0.5rem 1rem", marginBottom: "1rem", textAlign: "center" }}>
+          <strong style={{ color: "#c00", fontSize: "14pt" }}>CHARACTER DECEASED</strong>
+          <span style={{ color: "#666", fontSize: "10pt", marginLeft: "1rem" }}>Life credits reached zero</span>
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
         <StatBox label="Body Points" value={raceBP + classBP} />
         <StatBox label="Race BP" value={raceBP} />
         <StatBox label="Class BP" value={classBP} />
+        <StatBox label="Life Credits" value={isDead ? 0 : lifeCredits} />
         <StatBox label="Bank Silver" value={50 - character.silverSpent} />
       </div>
 

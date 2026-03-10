@@ -21,7 +21,9 @@ export type AuditAction =
   | "tag_removed"
   | "tag_approved"
   | "tag_denied"
-  | "skill_confirmed";
+  | "skill_confirmed"
+  | "life_credit_lost"
+  | "character_died";
 
 interface AuditEntry {
   characterId: string;

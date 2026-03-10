@@ -64,7 +64,11 @@ async function main() {
     data: { email: "vael@kanar.test", name: "Veronica Ashford", hashedPassword: pw, role: "user" },
   });
 
-  console.log("✓ Created 9 users (4 staff + 5 players)");
+  const p6 = await prisma.user.create({
+    data: { email: "grimm@kanar.test", name: "Derek Grimshaw", hashedPassword: pw, role: "user" },
+  });
+
+  console.log("✓ Created 10 users (4 staff + 6 players)");
 
   // ─── EVENTS ──────────────────────────────────────────────────────────────────
   const event1 = await prisma.event.create({
@@ -175,6 +179,7 @@ async function main() {
     ],
     startingSilver: 50,
     silverSpent: 20,
+    lifeCredits: 3,
   };
   const kara = await prisma.character.create({
     data: {
@@ -215,6 +220,7 @@ async function main() {
     ],
     startingSilver: 50,
     silverSpent: 5,
+    lifeCredits: 3,
   };
   const maeven = await prisma.character.create({
     data: {
@@ -257,6 +263,7 @@ async function main() {
     ],
     startingSilver: 50,
     silverSpent: 35,
+    lifeCredits: 3,
   };
   const elara = await prisma.character.create({
     data: {
@@ -297,6 +304,7 @@ async function main() {
     ],
     startingSilver: 50,
     silverSpent: 15,
+    lifeCredits: 3,
   };
   const marcus = await prisma.character.create({
     data: {
@@ -340,6 +348,7 @@ async function main() {
     ],
     startingSilver: 50,
     silverSpent: 30,
+    lifeCredits: 3,
   };
   const vaelith = await prisma.character.create({
     data: {
@@ -553,7 +562,50 @@ async function main() {
   console.log("✓ Created 5 inactive characters (one per player, last activity >12 months ago)");
   console.log("✓ Created Midwinter Revel 2024 registrations for inactive characters");
 
-  console.log("✓ Created 12 characters (5 approved, 5 inactive, 1 draft, 1 pending review)");
+  // ─── NEAR-DEATH TEST CHARACTER ───────────────────────────────────────────────
+  // Grimm Deathwalker: Level 3 Half-Orc Warrior with only 1 life credit remaining
+  const grimmData = {
+    name: "Grimm Deathwalker",
+    race: "Half-Orc",
+    characterClass: "Warrior",
+    level: 3,
+    xp: 0,
+    totalXP: 30,
+    bodyPoints: 14,
+    skillPoints: 170,
+    freeLanguage: "Common",
+    history: "A battle-scarred warrior who has cheated death many times. His reckless fighting style has cost him dearly — he has lost 4 of his 5 life credits across various events. One more death and Grimm walks the final road.",
+    skills: [
+      { skillName: "Orcish Lore", purchaseCount: 1, totalCost: 0, acquiredAt: "2025-06-01", reason: "Racial bonus" },
+      { skillName: "One-Handed Weapons", purchaseCount: 1, totalCost: 30, acquiredAt: "2025-06-01", reason: "Character creation" },
+      { skillName: "Two-Handed Weapons", purchaseCount: 1, totalCost: 30, acquiredAt: "2025-06-01", reason: "Character creation" },
+      { skillName: "Added Damage 1 (Greatsword, 2H)", purchaseCount: 1, totalCost: 20, acquiredAt: "2025-06-01", reason: "Character creation" },
+      { skillName: "First Aid", purchaseCount: 1, totalCost: 20, acquiredAt: "2025-06-01", reason: "Character creation" },
+      { skillName: "Physical Development", purchaseCount: 1, totalCost: 30, acquiredAt: "2025-10-18", reason: "Learned at Autumn's End 2025" },
+    ],
+    skillPointsSpent: 130,
+    equipment: [
+      { itemName: "Greatsword", quantity: 1, totalCost: 10, acquiredAt: "2025-06-01", reason: "Starting equipment" },
+      { itemName: "Leather Armor", quantity: 1, totalCost: 5, acquiredAt: "2025-06-01", reason: "Starting equipment" },
+    ],
+    startingSilver: 50,
+    silverSpent: 15,
+    lifeCredits: 1, // Base 3 + 2 level-ups = 5 total, lost 4 → 1 remaining
+    dead: false,
+  };
+  const grimm = await prisma.character.create({
+    data: {
+      userId: p6.id, name: "Grimm Deathwalker",
+      data: JSON.stringify(grimmData),
+      status: "approved",
+      submittedAt: new Date("2025-06-05"),
+      reviewedBy: cbd.id, reviewedAt: new Date("2025-06-06"),
+      reviewNotes: "Approved. Note: character is at critically low life credits.",
+    },
+  });
+
+  console.log("✓ Created 13 characters (6 approved, 5 inactive, 1 draft, 1 pending review)");
+  console.log("  ⚠ Grimm Deathwalker: 1 life credit remaining (test character for death system)");
 
   // ─── AUDIT LOGS ──────────────────────────────────────────────────────────────
   const allApproved = [
@@ -562,6 +614,7 @@ async function main() {
     { char: elara, player: p3, charName: "Elara", created: "2025-09-12", submitted: "2025-09-15", approved: "2025-09-16" },
     { char: marcus, player: p4, charName: "Marcus of Thornwood", created: "2026-01-05", submitted: "2026-01-10", approved: "2026-01-12" },
     { char: vaelith, player: p5, charName: "Vaelith Stormweaver", created: "2025-10-01", submitted: "2025-10-05", approved: "2025-10-06" },
+    { char: grimm, player: p6, charName: "Grimm Deathwalker", created: "2025-06-01", submitted: "2025-06-05", approved: "2025-06-06" },
   ];
 
   for (const c of allApproved) {
@@ -709,7 +762,17 @@ async function main() {
     },
   });
 
-  console.log("✓ Created Winter's Tale registrations (5 players)");
+  // Grimm at Winter's Tale
+  await prisma.eventRegistration.create({
+    data: {
+      userId: p6.id, eventId: event2.id, characterId: grimm.id,
+      ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
+      arfSignedAt: new Date("2026-01-10"), arfYear: 2026,
+      checkedInAt: new Date("2026-02-15T09:30:00"),
+    },
+  });
+
+  console.log("✓ Created Winter's Tale registrations (6 players)");
 
   // No sign-outs yet — clean slate for testing the sign-out flow
   console.log("✓ No sign-outs created (clean slate for testing)");
@@ -752,7 +815,17 @@ async function main() {
     },
   });
 
-  console.log("✓ Created Spring Awakening registrations (5 players)");
+  // Grimm at Spring Awakening (active event — for testing sign-out with life credit loss)
+  await prisma.eventRegistration.create({
+    data: {
+      userId: p6.id, eventId: event3.id, characterId: grimm.id,
+      ticketType: "single_a", amountPaid: 3500, paymentStatus: "paid",
+      arfSignedAt: new Date("2026-01-10"), arfYear: 2026,
+      checkedInAt: new Date("2026-03-08T09:00:00"),
+    },
+  });
+
+  console.log("✓ Created Spring Awakening registrations (6 players)");
 
   // ─── MONSTER BOOK ENTRIES ──────────────────────────────────────────────────
   await prisma.monsterBookEntry.createMany({
@@ -1054,6 +1127,7 @@ async function main() {
   console.log("  - elara@kanar.test     → Elara (Lvl 1 Human Cleric)");
   console.log("  - marcus@kanar.test    → Marcus of Thornwood (Lvl 1 Human Warrior)");
   console.log("  - vael@kanar.test      → Vaelith Stormweaver (Lvl 1 Common Elf Mage)");
+  console.log("  - grimm@kanar.test     → Grimm Deathwalker (Lvl 3 Half-Orc Warrior, 1 LIFE CREDIT)");
   console.log("");
   console.log("Events:");
   console.log("  - Autumn's End 2025     (completed, 4 attended, no sign-outs)");
@@ -1062,7 +1136,7 @@ async function main() {
   console.log("  - Midsummer 2026        (upcoming)");
   console.log("  - Harvest Moon 2026     (upcoming)");
   console.log("");
-  console.log("Characters: 5 approved, 5 inactive, 1 draft, 1 pending review (all Lvl 1)");
+  console.log("Characters: 6 approved, 5 inactive, 1 draft, 1 pending review");
   console.log("  Inactive: Brynn the Bold, Fenwick Thornfoot, Brother Aldous,");
   console.log("            Sable Nightwhisper, Old Garreth");
   console.log("Sign-outs: none (clean slate for testing)");

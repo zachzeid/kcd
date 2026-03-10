@@ -24,6 +24,8 @@ interface CharacterData {
   skillPointsSpent: number;
   silverSpent: number;
   totalXP?: number;
+  lifeCredits?: number;
+  dead?: boolean;
   skills: { skillName: string; specialization?: string; purchaseCount: number; totalCost: number; acquiredAt?: string; reason?: string }[];
   equipment: { itemName: string; quantity: number; totalCost: number; acquiredAt?: string; reason?: string }[];
 }
@@ -197,6 +199,8 @@ export default function CharacterSummaryPage() {
   }
 
   const d = character.data;
+  const isDead = !!d.dead;
+  const lifeCredits = d.lifeCredits;
   const statusInfo =
     CHARACTER_STATUSES[character.status] ?? CHARACTER_STATUSES.draft;
 
@@ -265,6 +269,15 @@ export default function CharacterSummaryPage() {
           </div>
         )}
 
+        {/* Dead notice */}
+        {isDead && (
+          <div className="p-3 rounded-lg border border-red-800/50 bg-red-900/20">
+            <p className="text-red-300 text-sm font-bold">
+              This character is dead. Life credits have reached zero.
+            </p>
+          </div>
+        )}
+
         {/* Inactive notice */}
         {character.inactive && (
           <div className="p-3 rounded-lg border border-orange-800/50 bg-orange-900/10">
@@ -285,11 +298,16 @@ export default function CharacterSummaryPage() {
         )}
 
         {/* Stats overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
           <StatCard label="Level" value={String(d.level)} />
           <StatCard label="Race" value={d.race} />
           <StatCard label="Class" value={d.characterClass} />
           <StatCard label="Body Points" value={String(totalBodyPoints)} />
+          <StatCard
+            label="Life Credits"
+            value={isDead ? "DEAD" : String(lifeCredits ?? (3 + (d.level - 1)))}
+            highlight={isDead ? "red" : lifeCredits !== undefined && lifeCredits <= 1 ? "yellow" : undefined}
+          />
           <StatCard label="Language" value={d.freeLanguage} />
         </div>
 
@@ -735,10 +753,12 @@ function TagsSection({
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, highlight }: { label: string; value: string; highlight?: "red" | "yellow" }) {
+  const borderColor = highlight === "red" ? "border-red-700" : highlight === "yellow" ? "border-yellow-700" : "border-gray-800";
+  const textColor = highlight === "red" ? "text-red-400" : highlight === "yellow" ? "text-yellow-400" : "text-white";
   return (
-    <div className="p-3 bg-gray-900 rounded-lg border border-gray-800 text-center">
-      <div className="text-white font-bold text-lg">{value}</div>
+    <div className={`p-3 bg-gray-900 rounded-lg border ${borderColor} text-center`}>
+      <div className={`${textColor} font-bold text-lg`}>{value}</div>
       <div className="text-gray-500 text-xs uppercase">{label}</div>
     </div>
   );

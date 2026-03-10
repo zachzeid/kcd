@@ -69,6 +69,12 @@ function formatAuditAction(action: string, details: Record<string, unknown> | nu
     case "tag_removed": return "removed a tag.";
     case "tag_approved": return "approved a tag.";
     case "tag_denied": return "denied a tag.";
+    case "life_credit_lost": {
+      const lost = details?.creditsLost;
+      const after = details?.creditsAfter;
+      return lost ? `lost ${lost} life credit${Number(lost) > 1 ? "s" : ""} (${after} remaining).` : "lost a life credit.";
+    }
+    case "character_died": return "has permanently died (0 life credits).";
     default: return `${action.replace(/_/g, " ")}.`;
   }
 }

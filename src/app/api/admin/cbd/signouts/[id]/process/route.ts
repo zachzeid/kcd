@@ -135,21 +135,75 @@ export async function POST(
       const classInfo = classes.find((c) => c.name === charData.characterClass);
       charData.bodyPoints = (raceInfo?.bodyPointsByLevel[newLevel - 1] ?? 0) + (classInfo?.bodyPointsByLevel[newLevel - 1] ?? 0);
 
-      await prisma.character.update({
-        where: { id: signOut.characterId },
-        data: { data: JSON.stringify(charData) },
-      });
-
+      // Grant +1 life credit per level gained
       if (newLevel > previousLevel) {
+        const levelsGained = newLevel - previousLevel;
+        const currentCredits = charData.lifeCredits ?? 3; // default 3 for legacy characters
+        charData.lifeCredits = currentCredits + levelsGained;
+
         await logAudit({
           characterId: signOut.characterId,
           actorId: "system",
           actorName: "System",
           actorRole: "system",
           action: "level_up",
-          details: { previousLevel, newLevel, totalXP: newTotalXP },
+          details: { previousLevel, newLevel, totalXP: newTotalXP, lifeCreditsGranted: levelsGained },
         });
       }
+
+      // Initialize life credits for legacy characters that don't have the field yet
+      if (charData.lifeCredits === undefined) {
+        // Base 3 + (level - 1) for existing characters
+        charData.lifeCredits = 3 + (charData.level - 1);
+      }
+
+      // Deduct life credits lost during this event
+      if (signOut.lifeCreditsLost > 0) {
+        const before = charData.lifeCredits;
+        charData.lifeCredits = Math.max(0, charData.lifeCredits - signOut.lifeCreditsLost);
+        const after = charData.lifeCredits;
+
+        await logAudit({
+          characterId: signOut.characterId,
+          actorId: session.user.id,
+          actorName: user.name,
+          actorRole: user.role,
+          action: "life_credit_lost",
+          details: {
+            creditsLost: signOut.lifeCreditsLost,
+            creditsBefore: before,
+            creditsAfter: after,
+            eventId: signOut.eventId,
+          },
+        });
+
+        // Mark character as dead if life credits reach 0
+        if (after === 0) {
+          charData.dead = true;
+
+          await logAudit({
+            characterId: signOut.characterId,
+            actorId: "system",
+            actorName: "System",
+            actorRole: "system",
+            action: "character_died",
+            details: {
+              reason: "Life credits reached zero",
+              eventId: signOut.eventId,
+              finalLevel: charData.level,
+            },
+          });
+        }
+      }
+
+      await prisma.character.update({
+        where: { id: signOut.characterId },
+        data: {
+          data: JSON.stringify(charData),
+          // Mark character as retired if dead
+          ...(charData.dead ? { status: "retired" } : {}),
+        },
+      });
     }
   }
 
