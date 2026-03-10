@@ -70,6 +70,17 @@ export async function POST(
   // Optionally create an encounter from this sign-out
   let encounter = null;
   if (createEncounter) {
+    // Prevent duplicate encounters from the same sign-out
+    const existing = await prisma.encounter.findFirst({
+      where: { signOutId: signoutId },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: "An encounter has already been created from this sign-out" },
+        { status: 409 }
+      );
+    }
+
     const encName = encounterName?.trim() || `Encounter from ${signOut.betweenEventAction} (${signoutId.slice(0, 8)})`;
     encounter = await prisma.encounter.create({
       data: {
