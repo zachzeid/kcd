@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Race, CharacterClass, Character, PurchasedSkill, PurchasedEquipment } from "@/types/character";
 import { races } from "@/data/races";
+import { classes } from "@/data/classes";
 import { CHARACTER_STATUSES, INACTIVE_LABEL, type CharacterStatus, canPlayerEdit, canSubmitForReview } from "@/lib/character-status";
 import { isStaff, canEditOwnCharacters } from "@/lib/roles";
 import StepIndicator from "@/components/StepIndicator";
@@ -178,16 +179,35 @@ export default function Home() {
   };
 
 
+  // Merge racial bonus skills into the skills list (free, not counted in SP)
+  const raceInfo = race ? races.find((r) => r.name === race) : null;
+  const classInfo = characterClass ? classes.find((c) => c.name === characterClass) : null;
+  const raceBP = raceInfo?.bodyPointsByLevel[0] ?? 0;
+  const classBP = classInfo?.bodyPointsByLevel[0] ?? 0;
+
+  const allSkills: PurchasedSkill[] = [
+    ...(raceInfo?.bonusSkills ?? [])
+      .filter((bs) => !purchasedSkills.some((ps) => ps.skillName === bs.name))
+      .map((bs) => ({
+        skillName: bs.name,
+        purchaseCount: bs.count,
+        totalCost: 0,
+        acquiredAt: new Date().toISOString(),
+        reason: "Racial bonus",
+      })),
+    ...purchasedSkills,
+  ];
+
   const character: Character = {
     name,
     race: race ?? "Human",
     characterClass: characterClass ?? "Warrior",
     level: 1,
     xp: 0,
-    bodyPoints: 0,
+    bodyPoints: raceBP + classBP,
     skillPoints: STARTING_SKILL_POINTS,
     skillPointsSpent,
-    skills: purchasedSkills,
+    skills: allSkills,
     startingSilver: STARTING_SILVER,
     silverSpent,
     equipment: purchasedEquipment,

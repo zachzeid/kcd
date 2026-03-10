@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CHARACTER_STATUSES, INACTIVE_LABEL, type CharacterStatus } from "@/lib/character-status";
 import { ITEM_TYPES } from "@/lib/economy";
+import { races } from "@/data/races";
+import { classes } from "@/data/classes";
 
 function formatSilver(copper: number): string {
   const silver = copper / 100;
@@ -198,6 +200,14 @@ export default function CharacterSummaryPage() {
   const statusInfo =
     CHARACTER_STATUSES[character.status] ?? CHARACTER_STATUSES.draft;
 
+  // Calculate body points from race + class + level
+  const raceInfo = races.find((r) => r.name === d.race);
+  const classInfo = classes.find((c) => c.name === d.characterClass);
+  const bodyPoints = (raceInfo?.bodyPointsByLevel[d.level - 1] ?? 0) + (classInfo?.bodyPointsByLevel[d.level - 1] ?? 0);
+  // Physical Development adds 4 BP per purchase
+  const physDevPurchases = d.skills.find((s) => s.skillName === "Physical Development")?.purchaseCount ?? 0;
+  const totalBodyPoints = bodyPoints + physDevPurchases * 4;
+
   // Group tags by itemType
   const tagsByType: Record<string, TagItem[]> = {};
   for (const tag of tags) {
@@ -275,10 +285,11 @@ export default function CharacterSummaryPage() {
         )}
 
         {/* Stats overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <StatCard label="Level" value={String(d.level)} />
           <StatCard label="Race" value={d.race} />
           <StatCard label="Class" value={d.characterClass} />
+          <StatCard label="Body Points" value={String(totalBodyPoints)} />
           <StatCard label="Language" value={d.freeLanguage} />
         </div>
 
