@@ -30,10 +30,20 @@ export async function PUT(
   const { name, type, region, description } = await req.json();
 
   try {
+    const newName = name !== undefined ? name.trim() : undefined;
+
+    // If renaming a region, cascade the name change to all locations within it
+    if (newName && newName !== existing.name && existing.type === "region") {
+      await prisma.location.updateMany({
+        where: { region: existing.name },
+        data: { region: newName },
+      });
+    }
+
     const updated = await prisma.location.update({
       where: { id },
       data: {
-        ...(name !== undefined && { name: name.trim() }),
+        ...(newName !== undefined && { name: newName }),
         ...(type !== undefined && { type }),
         ...(region !== undefined && { region: region?.trim() || null }),
         ...(description !== undefined && { description: description?.trim() || null }),
