@@ -1,11 +1,12 @@
 "use client";
 
-import { PurchasedEquipment } from "@/types/character";
+import { PurchasedEquipment, PurchasedSkill } from "@/types/character";
 import { startingEquipment, equipmentCategories } from "@/data/equipment";
 import { useState } from "react";
 
 interface Props {
   purchasedEquipment: PurchasedEquipment[];
+  purchasedSkills: PurchasedSkill[];
   silverRemaining: number;
   onAddItem: (itemName: string, cost: number) => void;
   onRemoveItem: (itemName: string, cost: number) => void;
@@ -13,10 +14,23 @@ interface Props {
 
 export default function EquipmentStep({
   purchasedEquipment,
+  purchasedSkills,
   silverRemaining,
   onAddItem,
   onRemoveItem,
 }: Props) {
+  // Check if character has a skill, supporting leveled requirements like "Alchemy 3"
+  const hasSkill = (requirement: string) => {
+    // Parse "SkillName N" format (e.g. "Alchemy 1", "Potions 3")
+    const match = requirement.match(/^(.+?)\s+(\d+)$/);
+    if (match) {
+      const baseName = match[1];
+      const requiredLevel = parseInt(match[2]);
+      return purchasedSkills.some((s) => s.skillName === baseName && s.purchaseCount >= requiredLevel);
+    }
+    // Plain skill name
+    return purchasedSkills.some((s) => s.skillName === requirement && s.purchaseCount >= 1);
+  };
   const [activeCategory, setActiveCategory] = useState("Miscellaneous");
 
   const getQuantity = (itemName: string) => {
@@ -68,7 +82,8 @@ export default function EquipmentStep({
           .map((item) => {
             const qty = getQuantity(item.name);
             const maxQty = item.maxAtCreation ?? 99;
-            const canBuyMore = qty < maxQty && silverRemaining >= item.cost;
+            const meetsSkillReq = !item.requiresSkill || hasSkill(item.requiresSkill);
+            const canBuyMore = qty < maxQty && silverRemaining >= item.cost && meetsSkillReq;
 
             return (
               <div
@@ -78,8 +93,8 @@ export default function EquipmentStep({
                 <div className="flex-1">
                   <span className="text-white font-medium text-sm">{item.name}</span>
                   {item.requiresSkill && (
-                    <span className="text-yellow-600 text-xs ml-2">
-                      Requires: {item.requiresSkill}
+                    <span className={`text-xs ml-2 ${meetsSkillReq ? "text-green-700" : "text-red-500"}`}>
+                      {meetsSkillReq ? `✓ ${item.requiresSkill}` : `Locked: ${item.requiresSkill}`}
                     </span>
                   )}
                   {qty > 0 && (

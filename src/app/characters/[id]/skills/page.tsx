@@ -7,7 +7,7 @@ import { CharacterClass, Race, PurchasedSkill } from "@/types/character";
 import { races } from "@/data/races";
 import SkillsStep from "@/components/SkillsStep";
 import { getSkillCost } from "@/components/SkillsStep";
-import { skills as allSkills } from "@/data/skills";
+import { skills as allSkills, getBaseSkillName } from "@/data/skills";
 
 interface CharSkillData {
   characterClass: CharacterClass;
@@ -78,7 +78,7 @@ export default function SkillsPage({ params }: { params: Promise<{ id: string }>
             : s
         );
       }
-      return [...prev, { skillName, purchaseCount: 1, totalCost: cost }];
+      return [...prev, { skillName, purchaseCount: 1, totalCost: cost, acquiredAt: new Date().toISOString(), reason: "Skill purchase" }];
     });
   }, []);
 
@@ -93,12 +93,13 @@ export default function SkillsPage({ params }: { params: Promise<{ id: string }>
       if (existing.purchaseCount <= minCount) return prev;
 
       // Calculate the cost of the last purchase to subtract
-      const skillDef = allSkills.find((s) => s.name === skillName);
+      const baseName = getBaseSkillName(skillName);
+      const skillDef = allSkills.find((s) => s.name === baseName);
       if (!skillDef || !charData) return prev;
 
       const baseCost = skillDef.costs[charData.characterClass];
       const removeCost = getSkillCost(
-        skillName,
+        baseName,
         skillDef.category,
         baseCost,
         existing.purchaseCount - 1
@@ -216,6 +217,7 @@ export default function SkillsPage({ params }: { params: Promise<{ id: string }>
           skillPointsRemaining={pointsRemaining}
           skillPointsTotal={available}
           bonusSkillNames={bonusSkillNames}
+          level={charData.level}
           onAddSkill={handleAddSkill}
           onRemoveSkill={handleRemoveSkill}
         />

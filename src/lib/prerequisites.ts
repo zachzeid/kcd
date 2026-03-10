@@ -10,8 +10,6 @@ export function checkPrerequisites(
   purchasedSkills: PurchasedSkill[],
   bonusSkillNames: string[]
 ): { met: boolean; reason?: string } {
-  if (!prerequisite) return { met: true };
-
   const owned = new Map<string, number>();
   for (const ps of purchasedSkills) {
     owned.set(ps.skillName, ps.purchaseCount);
@@ -87,22 +85,18 @@ export function checkPrerequisites(
     if (!has("Fire-Air Ability")) return { met: false, reason: "Requires Fire-Air Ability" };
   }
 
-  // --- Spell slot level requirements (need 2 of previous, 3 of two-below, etc.) ---
+  // --- Spell slot level requirements (pyramid: need 2 of N-1, 3 of N-2, ..., N of 1) ---
   const spellSlotMatch = skillName.match(/^(Bardic|Earth-Water|Fire-Air) (\d+)$/);
   if (spellSlotMatch) {
     const prefix = spellSlotMatch[1];
-    const level = parseInt(spellSlotMatch[2]);
-    if (level >= 2) {
-      const prevCount = owned.get(`${prefix} ${level - 1}`) ?? 0;
-      if (prevCount < 2) return { met: false, reason: `Requires at least 2 ${prefix} ${level - 1} slots` };
-    }
-    if (level >= 3) {
-      const prevCount = owned.get(`${prefix} ${level - 2}`) ?? 0;
-      if (prevCount < 3) return { met: false, reason: `Requires at least 3 ${prefix} ${level - 2} slots` };
-    }
-    if (level >= 4) {
-      const prevCount = owned.get(`${prefix} ${level - 3}`) ?? 0;
-      if (prevCount < 4) return { met: false, reason: `Requires at least 4 ${prefix} ${level - 3} slots` };
+    const slotLevel = parseInt(spellSlotMatch[2]);
+    for (let k = 1; k < slotLevel; k++) {
+      const requiredLevel = slotLevel - k;
+      const requiredCount = k + 1;
+      const actualCount = owned.get(`${prefix} ${requiredLevel}`) ?? 0;
+      if (actualCount < requiredCount) {
+        return { met: false, reason: `Requires at least ${requiredCount} ${prefix} ${requiredLevel} slot${requiredCount > 1 ? "s" : ""}` };
+      }
     }
   }
 
@@ -133,13 +127,24 @@ export function checkPrerequisites(
   }
 
   // --- Enchanting chain ---
-  for (let i = 2; i <= 9; i++) {
-    if (skillName === `Basic Enchanting ${i}`) {
-      if (!has(`Basic Enchanting ${i - 1}`)) return { met: false, reason: `Requires Basic Enchanting ${i - 1}` };
-    }
-  }
-  if (skillName === "Basic Enchanting 1") {
+  // Basic Enchanting requires Mystic Runes, previous level, AND spell slots of equivalent level
+  const enchantMatch = skillName.match(/^Basic Enchanting (\d+)$/);
+  if (enchantMatch) {
+    const enchantLevel = parseInt(enchantMatch[1]);
     if (!has("Mystic Runes")) return { met: false, reason: "Requires Mystic Runes" };
+    if (enchantLevel >= 2) {
+      if (!has(`Basic Enchanting ${enchantLevel - 1}`)) return { met: false, reason: `Requires Basic Enchanting ${enchantLevel - 1}` };
+    }
+    // Spell slots of equivalent level required (any school)
+    if (enchantLevel >= 1) {
+      const hasSpellSlot =
+        (owned.get(`Bardic ${enchantLevel}`) ?? 0) >= 1 ||
+        (owned.get(`Earth-Water ${enchantLevel}`) ?? 0) >= 1 ||
+        (owned.get(`Fire-Air ${enchantLevel}`) ?? 0) >= 1;
+      if (!hasSpellSlot) {
+        return { met: false, reason: `Requires a level ${enchantLevel} spell slot (Bardic, Earth-Water, or Fire-Air)` };
+      }
+    }
   }
   if (skillName === "Demi-Enchanting 1") {
     if (!has("Basic Enchanting 3")) return { met: false, reason: "Requires Basic Enchanting 3" };
@@ -159,6 +164,15 @@ export function checkPrerequisites(
   // --- Forgery ---
   if (skillName === "Forgery") {
     if (!hasAnyReadWrite(owned)) return { met: false, reason: "Requires Read/Write (Any)" };
+  }
+
+  // --- Forensics prerequisites ---
+  if (skillName === "Forensics") {
+    if (!has("First Aid")) return { met: false, reason: "Requires First Aid" };
+    const currentForensics = owned.get("Forensics") ?? 0;
+    if (currentForensics >= 3 && !has("Handle Toxin")) {
+      return { met: false, reason: "Forensics level 4+ requires Handle Toxin" };
+    }
   }
 
   // --- Handle Toxin ---
@@ -183,6 +197,10 @@ export function checkPrerequisites(
   if (skillName === "Alchemy") {
     if (!hasAnyReadWrite(owned)) return { met: false, reason: "Requires Read/Write (Any)" };
     if (!has("Math")) return { met: false, reason: "Requires Math" };
+    const currentAlchemy = owned.get("Alchemy") ?? 0;
+    if (currentAlchemy >= 3 && !has("More Math")) {
+      return { met: false, reason: "Alchemy level 4+ requires More Math" };
+    }
   }
   if (skillName === "Potions") {
     if (!has("Alchemy")) return { met: false, reason: "Requires Alchemy 1" };
@@ -199,6 +217,32 @@ export function checkPrerequisites(
   }
 
   return { met: true };
+}
+
+/**
+ * Returns the effective max purchases for a skill, factoring in character level.
+ * Some skills have level-dependent caps per the rulebook:
+ * - Spell slots: max 6 of any level before character level 7; max = character level at 7+
+ * - Disarm/Resist Disarm: max purchases = character level (per weapon specialization)
+ */
+export function getEffectiveMaxPurchases(
+  skillName: string,
+  baseMaxPurchases: number,
+  level: number
+): number {
+  // Spell slot level-gating: max 6 before level 7, max = character level at 7+
+  const spellSlotMatch = skillName.match(/^(Bardic|Earth-Water|Fire-Air) \d+$/);
+  if (spellSlotMatch) {
+    if (level < 7) return Math.min(baseMaxPurchases, 6);
+    return Math.min(baseMaxPurchases, level);
+  }
+
+  // Disarm/Resist Disarm: max = character level
+  if (skillName === "Disarm/Resist Disarm") {
+    return Math.min(baseMaxPurchases, level);
+  }
+
+  return baseMaxPurchases;
 }
 
 function hasAnyReadWrite(owned: Map<string, number>): boolean {

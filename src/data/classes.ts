@@ -25,7 +25,7 @@ export const classes: ClassInfo[] = [
   {
     name: "Cleric",
     description: "Devote their lives to the study of the Earth and Water spheres of magic.",
-    bodyPointsByLevel: Array.from({ length: 30 }, (_, i) => 4 + i * 1),
+    bodyPointsByLevel: Array.from({ length: 30 }, (_, i) => 4 + i * 2),
   },
   {
     name: "Mage",

@@ -40,6 +40,38 @@ interface SavedCharEntry {
   auditLogs: AuditLogEntry[];
 }
 
+function formatAuditAction(action: string, details: Record<string, unknown> | null): string {
+  switch (action) {
+    case "created": return "created this character.";
+    case "updated": return "updated this character.";
+    case "submitted": return "submitted this character for review.";
+    case "approved": return "approved this character.";
+    case "rejected": return "rejected this character.";
+    case "checked_in": return "checked in to an event.";
+    case "checked_out": return "checked out of an event.";
+    case "signout_submitted": return "submitted a sign-out request.";
+    case "signout_processed": return "processed the sign-out.";
+    case "reactivated": return "reactivated this character.";
+    case "inactive": return "marked this character as inactive.";
+    case "deleted": return "deleted this character.";
+    case "level_up": {
+      const newLevel = details?.newLevel;
+      return newLevel ? `leveled up to level ${newLevel}.` : "leveled up.";
+    }
+    case "registered": return "registered for an event.";
+    case "status_change": {
+      const to = details?.to;
+      return to ? `changed status to ${String(to).replace(/_/g, " ")}.` : "changed the status.";
+    }
+    case "tag_created": return "created a tag.";
+    case "tag_transferred": return "transferred a tag.";
+    case "tag_removed": return "removed a tag.";
+    case "tag_approved": return "approved a tag.";
+    case "tag_denied": return "denied a tag.";
+    default: return `${action.replace(/_/g, " ")}.`;
+  }
+}
+
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -212,7 +244,7 @@ export default function Home() {
             : s
         );
       }
-      return [...prev, { skillName, purchaseCount: 1, totalCost: cost }];
+      return [...prev, { skillName, purchaseCount: 1, totalCost: cost, acquiredAt: new Date().toISOString(), reason: "Character creation" }];
     });
   }, []);
 
@@ -242,7 +274,7 @@ export default function Home() {
             : e
         );
       }
-      return [...prev, { itemName, quantity: 1, totalCost: cost }];
+      return [...prev, { itemName, quantity: 1, totalCost: cost, acquiredAt: new Date().toISOString(), reason: "Starting equipment" }];
     });
   }, []);
 
@@ -463,7 +495,7 @@ export default function Home() {
                                     log.action === "level_up" ? "text-yellow-300" :
                                     "text-gray-400"
                                   }>
-                                    {log.action.replace(/_/g, " ")}
+                                    {formatAuditAction(log.action, log.details)}
                                   </span>
                                   {log.details && typeof log.details.notes === "string" && (
                                     <span className="ml-1 text-gray-500">— {log.details.notes}</span>
@@ -504,6 +536,7 @@ export default function Home() {
                   skillPointsRemaining={skillPointsRemaining}
                   skillPointsTotal={STARTING_SKILL_POINTS}
                   bonusSkillNames={bonusSkillNames}
+                  level={1}
                   onAddSkill={handleAddSkill}
                   onRemoveSkill={handleRemoveSkill}
                 />
@@ -511,6 +544,7 @@ export default function Home() {
               {step === 4 && (
                 <EquipmentStep
                   purchasedEquipment={purchasedEquipment}
+                  purchasedSkills={purchasedSkills}
                   silverRemaining={silverRemaining}
                   onAddItem={handleAddEquipment}
                   onRemoveItem={handleRemoveEquipment}

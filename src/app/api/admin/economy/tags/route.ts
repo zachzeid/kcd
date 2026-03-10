@@ -21,10 +21,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const characterId = searchParams.get("characterId");
   const status = searchParams.get("status");
+  const ids = searchParams.get("ids");
 
   const where: Record<string, unknown> = {};
   if (characterId) where.characterId = characterId;
   if (status) where.status = status;
+  if (ids) where.id = { in: ids.split(",").filter(Boolean) };
 
   const rawTags = await prisma.itemSubmission.findMany({
     where,

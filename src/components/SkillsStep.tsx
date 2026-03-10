@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { CharacterClass, PurchasedSkill } from "@/types/character";
-import { skills, skillCategories } from "@/data/skills";
-import { checkPrerequisites } from "@/lib/prerequisites";
+import { skills, skillCategories, skillSpecializations, getBaseSkillName } from "@/data/skills";
+import { checkPrerequisites, getEffectiveMaxPurchases } from "@/lib/prerequisites";
 
 interface Props {
   characterClass: CharacterClass;
@@ -11,6 +11,7 @@ interface Props {
   skillPointsRemaining: number;
   skillPointsTotal: number;
   bonusSkillNames: string[];
+  level: number;
   onAddSkill: (skillName: string, cost: number) => void;
   onRemoveSkill: (skillName: string) => void;
 }
@@ -39,13 +40,52 @@ export default function SkillsStep({
   skillPointsRemaining,
   skillPointsTotal,
   bonusSkillNames,
+  level,
   onAddSkill,
   onRemoveSkill,
 }: Props) {
   const [activeCategory, setActiveCategory] = useState("General");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredSkills = skills.filter((s) => {
+  // Expand skills with known specializations into individual rows
+  interface SkillRow {
+    name: string;
+    baseName: string;
+    category: string;
+    costs: Record<CharacterClass, number>;
+    maxPurchases: number;
+    selfTaught: boolean;
+    prerequisite?: string;
+    description: string;
+  }
+
+  const expandedSkills: SkillRow[] = skills.flatMap((s) => {
+    const specs = skillSpecializations[s.name];
+    if (specs) {
+      return specs.map((spec): SkillRow => ({
+        name: `${s.name} (${spec})`,
+        baseName: s.name,
+        category: s.category,
+        costs: s.costs,
+        maxPurchases: s.maxPurchases,
+        selfTaught: s.selfTaught,
+        prerequisite: s.prerequisite,
+        description: s.description,
+      }));
+    }
+    return [{
+      name: s.name,
+      baseName: s.name,
+      category: s.category,
+      costs: s.costs,
+      maxPurchases: s.maxPurchases,
+      selfTaught: s.selfTaught,
+      prerequisite: s.prerequisite,
+      description: s.description,
+    }];
+  });
+
+  const filteredSkills = expandedSkills.filter((s) => {
     const matchesCategory = s.category === activeCategory;
     const matchesSearch =
       searchQuery === "" || s.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -110,12 +150,14 @@ export default function SkillsStep({
         {filteredSkills.map((skill) => {
           const currentPurchases = getPurchaseCount(skill.name);
           const baseCost = skill.costs[characterClass];
-          const nextCost = getSkillCost(skill.name, skill.category, baseCost, currentPurchases);
-          const canBuyMore = currentPurchases < skill.maxPurchases;
-          const isBonus = isBonusSkill(skill.name);
+          const nextCost = getSkillCost(skill.baseName, skill.category, baseCost, currentPurchases);
+          const effectiveMax = getEffectiveMaxPurchases(skill.baseName, skill.maxPurchases, level);
+          const canBuyMore = currentPurchases < effectiveMax;
+          const isBonus = isBonusSkill(skill.name) || isBonusSkill(skill.baseName);
 
+          // Prerequisite checks use the base name (e.g. "Craft" not "Craft (Weapons)")
           const prereqCheck = checkPrerequisites(
-            skill.name,
+            skill.baseName,
             skill.prerequisite,
             purchasedSkills,
             bonusSkillNames
@@ -161,6 +203,9 @@ export default function SkillsStep({
                 )}
                 {!prereqBlocked && skill.prerequisite && (
                   <p className="text-green-700 text-xs mt-0.5">Req: {skill.prerequisite}</p>
+                )}
+                {effectiveMax < skill.maxPurchases && effectiveMax > 1 && (
+                  <p className="text-blue-400 text-xs mt-0.5">Max {effectiveMax} at level {level}</p>
                 )}
               </div>
               <div className="flex items-center gap-2 ml-3">

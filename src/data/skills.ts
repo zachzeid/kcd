@@ -37,7 +37,7 @@ export const skills: SkillDefinition[] = [
 
   // === TRADE SKILLS (5 levels each) ===
   { name: "Craft", category: "Trade", costs: { Warrior: 16, Rogue: 24, Cleric: 16, Mage: 16 }, maxPurchases: 5, selfTaught: false, specialization: true, description: "Create items of a specific craft specialization." },
-  { name: "Forensics", category: "Trade", costs: { Warrior: 40, Rogue: 30, Cleric: 20, Mage: 30 }, maxPurchases: 5, selfTaught: false, description: "Examine corpse wounds to determine cause of death." },
+  { name: "Forensics", category: "Trade", costs: { Warrior: 40, Rogue: 30, Cleric: 20, Mage: 30 }, maxPurchases: 5, selfTaught: false, prerequisite: "First Aid; Handle Toxin at level 4+", description: "Examine corpse wounds to determine cause of death." },
   { name: "Herbalism", category: "Trade", costs: { Warrior: 32, Rogue: 16, Cleric: 16, Mage: 16 }, maxPurchases: 5, selfTaught: false, prerequisite: "First Aid, Flora Lore", description: "Apply knowledge of herbs for healing salves, pastes, and bandages." },
   { name: "Pick Locks", category: "Trade", costs: { Warrior: 40, Rogue: 40, Cleric: 20, Mage: 40 }, maxPurchases: 5, selfTaught: false, description: "Attempt to open a secured lock without a key." },
 
@@ -174,6 +174,34 @@ export const skills: SkillDefinition[] = [
   { name: "Fire-Air 8", category: "Spell Slot", costs: { Warrior: 165, Rogue: 165, Cleric: 165, Mage: 55 }, maxPurchases: 99, selfTaught: true, description: "Prepare one level 8 Fire/Air spell per day." },
   { name: "Fire-Air 9", category: "Spell Slot", costs: { Warrior: 210, Rogue: 210, Cleric: 210, Mage: 70 }, maxPurchases: 99, selfTaught: true, description: "Prepare one level 9 Fire/Air spell per day." },
 ];
+
+// Known specializations for skills that require them (rulebook p.23)
+export const skillSpecializations: Record<string, string[]> = {
+  Craft: [
+    "Armor",
+    "Artistry",
+    "Brewing",
+    "Bookbinding",
+    "Carpentry",
+    "Chandlery",
+    "Cooking",
+    "Disguises",
+    "Glassmaking",
+    "Leatherer",
+    "Masonry",
+    "Metalsmithing",
+    "Pottery",
+    "Siege",
+    "Tailoring",
+    "Weapons",
+  ],
+};
+
+// Resolve a potentially specialized skill name (e.g. "Craft (Weapons)") to its base definition
+export function getBaseSkillName(skillName: string): string {
+  const match = skillName.match(/^(.+?) \((.+)\)$/);
+  return match ? match[1] : skillName;
+}
 
 export const skillCategories = [
   "General",

@@ -132,6 +132,9 @@ export default function EconomyDepartment() {
   const [removeReason, setRemoveReason] = useState("");
   const [removeSaving, setRemoveSaving] = useState(false);
 
+  // Batch print selection
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     setLoading(true);
     if (subTab === "tags") {
@@ -388,6 +391,35 @@ export default function EconomyDepartment() {
     return acc;
   }, {});
 
+  const toggleTagSelection = (id: string) => {
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = (visibleTags: Tag[]) => {
+    const printableVisible = visibleTags.filter((t) => t.status === "approved" && t.tagCode);
+    const allSelected = printableVisible.every((t) => selectedTagIds.has(t.id));
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) {
+        printableVisible.forEach((t) => next.delete(t.id));
+      } else {
+        printableVisible.forEach((t) => next.add(t.id));
+      }
+      return next;
+    });
+  };
+
+  const openBatchPrint = () => {
+    if (selectedTagIds.size === 0) return;
+    const ids = Array.from(selectedTagIds).join(",");
+    window.open(`/admin/print-tags?ids=${ids}`, "_blank");
+  };
+
   const typeLabel = (type: string) =>
     (ITEM_TYPES as Record<string, string>)[type] ?? type;
 
@@ -445,12 +477,22 @@ export default function EconomyDepartment() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setShowCreateTag(!showCreateTag)}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-500"
-            >
-              {showCreateTag ? "Cancel" : "+ Create Tag"}
-            </button>
+            <div className="flex gap-2">
+              {selectedTagIds.size > 0 && (
+                <button
+                  onClick={openBatchPrint}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium bg-green-700 text-white hover:bg-green-600"
+                >
+                  Print {selectedTagIds.size} Tag{selectedTagIds.size !== 1 ? "s" : ""}
+                </button>
+              )}
+              <button
+                onClick={() => setShowCreateTag(!showCreateTag)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-600 text-white hover:bg-amber-500"
+              >
+                {showCreateTag ? "Cancel" : "+ Create Tag"}
+              </button>
+            </div>
           </div>
 
           {/* Create tag form */}
@@ -759,6 +801,18 @@ export default function EconomyDepartment() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-gray-500 border-b border-gray-700">
+                    <th className="py-2 px-2 w-8">
+                      <input
+                        type="checkbox"
+                        checked={
+                          filteredTags.filter((t) => t.status === "approved" && t.tagCode).length > 0 &&
+                          filteredTags.filter((t) => t.status === "approved" && t.tagCode).every((t) => selectedTagIds.has(t.id))
+                        }
+                        onChange={() => toggleSelectAllVisible(filteredTags)}
+                        className="accent-amber-600"
+                        title="Select all approved tags"
+                      />
+                    </th>
                     <th className="text-left py-2 px-3">Tag #</th>
                     <th className="text-left py-2 px-3">Source</th>
                     <th className="text-left py-2 px-3">Type</th>
@@ -771,7 +825,19 @@ export default function EconomyDepartment() {
                 </thead>
                 <tbody>
                   {filteredTags.map((tag) => (
-                    <tr key={tag.id} className="border-b border-gray-800">
+                    <tr key={tag.id} className={`border-b border-gray-800 ${selectedTagIds.has(tag.id) ? "bg-amber-900/10" : ""}`}>
+                      <td className="py-2 px-2">
+                        {tag.status === "approved" && tag.tagCode ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedTagIds.has(tag.id)}
+                            onChange={() => toggleTagSelection(tag.id)}
+                            className="accent-amber-600"
+                          />
+                        ) : (
+                          <span />
+                        )}
+                      </td>
                       <td className="py-2 px-3 text-amber-400 font-mono text-xs">
                         {tag.tagCode ? (
                           <a
