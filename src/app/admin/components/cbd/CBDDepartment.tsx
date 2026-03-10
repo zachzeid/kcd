@@ -73,10 +73,30 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>("pending");
 
+  // Tab counts (fetched independently so they're always visible)
+  const [counts, setCounts] = useState<{ signouts: number; review: number; characters: number }>({
+    signouts: 0, review: 0, characters: 0,
+  });
+
   // Process modal
   const [processModal, setProcessModal] = useState<SignOutRow | null>(null);
   const [processNotes, setProcessNotes] = useState("");
   const [processing, setProcessing] = useState(false);
+
+  // Fetch counts for all tabs
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/admin/cbd/signouts?status=pending").then((r) => r.ok ? r.json() : []),
+      fetch("/api/admin/characters?status=pending_review").then((r) => r.ok ? r.json() : []),
+      fetch("/api/admin/characters").then((r) => r.ok ? r.json() : []),
+    ]).then(([so, rev, all]) => {
+      setCounts({
+        signouts: Array.isArray(so) ? so.length : 0,
+        review: Array.isArray(rev) ? rev.length : 0,
+        characters: Array.isArray(all) ? all.length : 0,
+      });
+    }).catch(() => {});
+  }, [refreshKey]);
 
   useEffect(() => {
     setLoading(true);
@@ -177,8 +197,6 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
     return { eventDays, baseXP, npcXP, totalXP, cap: eventDays * 10 };
   };
 
-  const pendingCount = subTab === "review" ? characters.length : 0;
-
   return (
     <div>
       <div className="flex gap-2 mb-4">
@@ -190,7 +208,7 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
               : "bg-gray-800 text-gray-400 hover:bg-gray-700"
           }`}
         >
-          Sign-Out Queue
+          Sign-Out Queue ({counts.signouts})
         </button>
         <button
           onClick={() => setSubTab("review")}
@@ -200,7 +218,7 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
               : "bg-gray-800 text-gray-400 hover:bg-gray-700"
           }`}
         >
-          Character Review{pendingCount > 0 && subTab === "review" ? ` (${pendingCount})` : ""}
+          Character Review ({counts.review})
         </button>
         <button
           onClick={() => setSubTab("characters")}
@@ -210,7 +228,7 @@ export default function CBDDepartment({ userRole }: { userRole: string }) {
               : "bg-gray-800 text-gray-400 hover:bg-gray-700"
           }`}
         >
-          All Characters
+          All Characters ({counts.characters})
         </button>
       </div>
 
