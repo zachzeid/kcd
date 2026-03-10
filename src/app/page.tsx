@@ -109,6 +109,26 @@ export default function Home() {
     ? (races.find((r) => r.name === race)?.bonusSkills.map((s) => s.name) ?? [])
     : [];
 
+  // When race changes, sync racial bonus skills into purchasedSkills
+  useEffect(() => {
+    const raceData = race ? races.find((r) => r.name === race) : null;
+    const newBonusSkills = raceData?.bonusSkills ?? [];
+
+    setPurchasedSkills((prev) => {
+      // Remove any existing racial bonus entries
+      const withoutBonus = prev.filter((s) => s.reason !== "Racial bonus");
+      // Add new racial bonus skills
+      const bonusEntries: PurchasedSkill[] = newBonusSkills.map((bs) => ({
+        skillName: bs.name,
+        purchaseCount: bs.count,
+        totalCost: 0,
+        acquiredAt: new Date().toISOString(),
+        reason: "Racial bonus",
+      }));
+      return [...bonusEntries, ...withoutBonus];
+    });
+  }, [race]);
+
   // Refresh key to trigger character list reload
   const [charListKey, setCharListKey] = useState(0);
   const refreshCharList = () => setCharListKey((k) => k + 1);
@@ -179,24 +199,11 @@ export default function Home() {
   };
 
 
-  // Merge racial bonus skills into the skills list (free, not counted in SP)
-  const raceInfo = race ? races.find((r) => r.name === race) : null;
-  const classInfo = characterClass ? classes.find((c) => c.name === characterClass) : null;
-  const raceBP = raceInfo?.bodyPointsByLevel[0] ?? 0;
-  const classBP = classInfo?.bodyPointsByLevel[0] ?? 0;
-
-  const allSkills: PurchasedSkill[] = [
-    ...(raceInfo?.bonusSkills ?? [])
-      .filter((bs) => !purchasedSkills.some((ps) => ps.skillName === bs.name))
-      .map((bs) => ({
-        skillName: bs.name,
-        purchaseCount: bs.count,
-        totalCost: 0,
-        acquiredAt: new Date().toISOString(),
-        reason: "Racial bonus",
-      })),
-    ...purchasedSkills,
-  ];
+  // Body points calculation
+  const curRaceInfo = race ? races.find((r) => r.name === race) : null;
+  const curClassInfo = characterClass ? classes.find((c) => c.name === characterClass) : null;
+  const raceBP = curRaceInfo?.bodyPointsByLevel[0] ?? 0;
+  const classBP = curClassInfo?.bodyPointsByLevel[0] ?? 0;
 
   const character: Character = {
     name,
@@ -207,7 +214,7 @@ export default function Home() {
     bodyPoints: raceBP + classBP,
     skillPoints: STARTING_SKILL_POINTS,
     skillPointsSpent,
-    skills: allSkills,
+    skills: purchasedSkills,
     startingSilver: STARTING_SILVER,
     silverSpent,
     equipment: purchasedEquipment,
