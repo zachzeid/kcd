@@ -29,7 +29,7 @@ function formatAuditAction(action: string, details: Record<string, unknown> | nu
     case "updated": return "updated this character.";
     case "submitted": return "submitted this character for review.";
     case "approved": return "approved this character.";
-    case "rejected": return "rejected this character.";
+    case "rejected": return "requested changes on this character.";
     case "checked_in": return "checked in to an event.";
     case "checked_out": return "checked out of an event.";
     case "signout_submitted": return "submitted a sign-out request.";
@@ -340,16 +340,6 @@ export default function CharacterSummaryPage() {
           </div>
         )}
 
-        {/* Review notes */}
-        {character.reviewNotes && (
-          <div className="p-3 rounded-lg border border-yellow-800/50 bg-yellow-900/10">
-            <div className="text-yellow-400 text-xs font-bold mb-1">
-              Review Notes
-            </div>
-            <p className="text-gray-300 text-sm">{character.reviewNotes}</p>
-          </div>
-        )}
-
         {/* Stats overview */}
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
           <StatCard label="Level" value={String(d.level)} />
@@ -627,7 +617,7 @@ export default function CharacterSummaryPage() {
 
         {/* Activity Log */}
         {auditLogs.length > 0 && (
-          <CollapsibleSection title="Activity Log" count={auditLogs.length} defaultOpen={false}>
+          <CollapsibleSection title="Activity Log" count={auditLogs.length} defaultOpen={character.status === "rejected"}>
             <div className="mb-3">
               <input
                 type="text"
@@ -686,7 +676,13 @@ export default function CharacterSummaryPage() {
                         {formatAuditAction(log.action, log.details)}
                       </span>
                       {log.details && typeof log.details.notes === "string" && (
-                        <span className="ml-1 text-gray-500">— {log.details.notes}</span>
+                        (log.action === "approved" || log.action === "rejected") ? (
+                          <div className="mt-1 ml-1 pl-2 border-l-2 border-yellow-700/50 text-yellow-200/80 text-xs">
+                            {log.details.notes}
+                          </div>
+                        ) : (
+                          <span className="ml-1 text-gray-500">— {log.details.notes}</span>
+                        )
                       )}
                     </span>
                   </div>

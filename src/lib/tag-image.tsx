@@ -1,17 +1,29 @@
 import { ImageResponse } from "next/og";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 const TAG_BASE_URL = process.env.TAG_BASE_URL || process.env.NEXTAUTH_URL || "https://k1.gg";
 
-// Colors from the Python script
+// Colors
 const PARCHMENT_BG = "#F5EBDC";
 const SEAL_DARK = "#4B3723";
 const TEXT_COLOR = "#2D1E0F";
 // Ghost color: slightly darker than parchment for OCR readability
 const GHOST_COLOR = "#DDD1C0";
 
-// Business card dimensions: 3.5" × 2" at 300 DPI
+// Business card dimensions: 3.5" x 2" at 300 DPI
 const CARD_WIDTH = 1050;
 const CARD_HEIGHT = 600;
+
+// Load seal image as base64 data URL at module level (server-side only)
+let sealDataUrl: string;
+try {
+  const sealPath = join(process.cwd(), "public", "alchemy_seal.png");
+  const sealBuffer = readFileSync(sealPath);
+  sealDataUrl = `data:image/png;base64,${sealBuffer.toString("base64")}`;
+} catch {
+  sealDataUrl = "";
+}
 
 interface TagImageOptions {
   tagCode: number;
@@ -21,7 +33,7 @@ interface TagImageOptions {
   craftingLevel: number;
   masterCrafted?: boolean;
   quantity?: number;
-  size?: number; // scale factor (1 = 1050×600, 0.5 = 525×300, etc.)
+  size?: number; // scale factor (1 = 1050x600, 0.5 = 525x300, etc.)
 }
 
 /** Friendly display name for item types */
@@ -49,6 +61,9 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
 
   // All font sizes and spacing scale relative to card height
   const s = (pct: number) => Math.round(h * pct);
+
+  // Seal size — fits in the center band between top and bottom text
+  const sealSize = s(0.42);
 
   return new ImageResponse(
     (
@@ -90,24 +105,23 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           }}
         />
 
-        {/* Certificate content */}
+        {/* Top text band */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            paddingTop: s(0.1),
-            gap: s(0.015),
+            paddingTop: s(0.08),
+            gap: s(0.005),
           }}
         >
           {/* Title */}
           <div
             style={{
               display: "flex",
-              fontSize: s(0.1),
+              fontSize: s(0.085),
               color: TEXT_COLOR,
               fontWeight: 700,
-              marginBottom: s(0.02),
             }}
           >
             {title}
@@ -119,11 +133,10 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
               display: "flex",
               alignItems: "center",
               gap: 8,
-              marginBottom: s(0.01),
             }}
           >
             <div style={{ width: s(0.08), height: 1, background: SEAL_DARK, display: "flex" }} />
-            <div style={{ fontSize: s(0.04), color: SEAL_DARK, display: "flex" }}>---</div>
+            <div style={{ fontSize: s(0.035), color: SEAL_DARK, display: "flex" }}>---</div>
             <div style={{ width: s(0.08), height: 1, background: SEAL_DARK, display: "flex" }} />
           </div>
 
@@ -131,21 +144,57 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           <div
             style={{
               display: "flex",
-              fontSize: s(0.085),
+              fontSize: s(0.075),
               color: TEXT_COLOR,
               fontWeight: 600,
-              marginTop: s(0.005),
             }}
           >
             {opts.itemName}
+            {(opts.quantity ?? 1) > 1 ? ` (x${opts.quantity})` : ""}
           </div>
+        </div>
 
-          {/* Skill & Level + Tag Number on same line */}
+        {/* Center seal */}
+        {sealDataUrl && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={sealDataUrl}
+              alt="K1 Seal"
+              width={sealSize}
+              height={sealSize}
+              style={{ opacity: 0.18 }}
+            />
+          </div>
+        )}
+
+        {/* Bottom text band */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            paddingBottom: s(0.08),
+            gap: s(0.01),
+          }}
+        >
+          {/* Skill & Level + Tag Number */}
           <div
             style={{
               display: "flex",
               gap: s(0.06),
-              fontSize: s(0.06),
+              fontSize: s(0.055),
               color: TEXT_COLOR,
             }}
           >
@@ -153,52 +202,28 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
             <span>Tag #{opts.tagCode}</span>
           </div>
 
-          {/* Quantity (if > 1) */}
-          {(opts.quantity ?? 1) > 1 && (
-            <div
-              style={{
-                display: "flex",
-                fontSize: s(0.055),
-                color: TEXT_COLOR,
-              }}
-            >
-              Quantity: {opts.quantity}
-            </div>
-          )}
-
           {/* Master Crafted badge */}
           {opts.masterCrafted && (
             <div
               style={{
                 display: "flex",
-                fontSize: s(0.05),
+                fontSize: s(0.045),
                 color: "#6B2FAD",
                 fontWeight: 700,
-                marginTop: s(0.01),
                 border: "1px solid #6B2FAD",
-                padding: `${s(0.008)}px ${s(0.03)}px`,
+                padding: `${s(0.005)}px ${s(0.025)}px`,
                 borderRadius: 3,
               }}
             >
               Master Crafted
             </div>
           )}
-        </div>
 
-        {/* Bottom content */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            paddingBottom: s(0.08),
-            gap: 2,
-          }}
-        >
+          {/* Motto */}
           <div
             style={{
               display: "flex",
-              fontSize: s(0.05),
+              fontSize: s(0.045),
               color: TEXT_COLOR,
             }}
           >
@@ -207,7 +232,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
           <div
             style={{
               display: "flex",
-              fontSize: s(0.04),
+              fontSize: s(0.035),
               color: TEXT_COLOR,
             }}
           >
