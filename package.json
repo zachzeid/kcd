@@ -11,16 +11,20 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:import-monsters": "tsx scripts/import-monsters.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "bot:dev": "tsx bot/index.ts",
+    "bot:deploy-commands": "tsx bot/utils/deploy-commands.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@libsql/client": "^0.17.0",
     "@prisma/adapter-libsql": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "bcryptjs": "^3.0.3",
+    "discord.js": "^14.25.1",
     "next": "16.1.6",
     "next-auth": "^5.0.0-beta.30",
     "prisma": "^7.4.2",
