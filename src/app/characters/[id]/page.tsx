@@ -647,7 +647,10 @@ export default function CharacterSummaryPage() {
                   const detailsStr = log.details ? JSON.stringify(log.details).toLowerCase() : "";
                   return text.includes(q) || dateStr.includes(q) || detailsStr.includes(q);
                 })
-                .map((log) => (
+                .map((log) => {
+                  // Character-centric events: the subject is the character, not the actor
+                  const isCharacterEvent = log.action === "life_credit_lost" || log.action === "character_died" || log.action === "level_up";
+                  return (
                   <div
                     key={log.id}
                     className="flex items-start gap-2 text-xs text-gray-400 py-1.5 border-b border-gray-800/50"
@@ -656,9 +659,15 @@ export default function CharacterSummaryPage() {
                       {new Date(log.createdAt).toLocaleString()}
                     </span>
                     <span>
-                      <span className="text-gray-300 font-medium">{log.actorName}</span>
-                      {log.actorRole !== "user" && (
-                        <span className="ml-1 text-amber-500/70">({log.actorRole})</span>
+                      {isCharacterEvent ? (
+                        <span className="text-gray-300 font-medium">Character</span>
+                      ) : (
+                        <>
+                          <span className="text-gray-300 font-medium">{log.actorName}</span>
+                          {log.actorRole !== "user" && (
+                            <span className="ml-1 text-amber-500/70">({log.actorRole})</span>
+                          )}
+                        </>
                       )}
                       {" "}
                       <span
@@ -681,7 +690,8 @@ export default function CharacterSummaryPage() {
                       )}
                     </span>
                   </div>
-                ))}
+                  );
+                })}
             </div>
           </CollapsibleSection>
         )}
