@@ -34,7 +34,18 @@ function formatAuditAction(action: string, details: Record<string, unknown> | nu
     case "checked_in": return "checked in to an event.";
     case "checked_out": return "checked out of an event.";
     case "signout_submitted": return "submitted a sign-out request.";
-    case "signout_processed": return "processed the sign-out.";
+    case "signout_processed": {
+      if (details?.result === "rejected") return "rejected the sign-out.";
+      const xp = details?.xpAwarded;
+      const bd = details?.xpBreakdown as { eventDays?: number; baseXP?: number; npcMinutes?: number; npcXP?: number; capped?: boolean } | undefined;
+      if (bd) {
+        const parts = [`${bd.baseXP} base (${bd.eventDays}-day event)`];
+        if (bd.npcXP && bd.npcXP > 0) parts.push(`${bd.npcXP} NPC (${bd.npcMinutes} min)`);
+        if (bd.capped) parts.push("capped");
+        return `processed sign-out — ${xp} XP awarded (${parts.join(", ")}).`;
+      }
+      return xp ? `processed sign-out — ${xp} XP awarded.` : "processed the sign-out.";
+    }
     case "reactivated": return "reactivated this character.";
     case "inactive": return "marked this character as inactive.";
     case "deleted": return "deleted this character.";
@@ -698,6 +709,11 @@ export default function CharacterSummaryPage() {
                         ) : (
                           <span className="ml-1 text-gray-500">— {log.details.notes}</span>
                         )
+                      )}
+                      {!!log.details?.lateSignOut && (
+                        <div className="mt-0.5 text-orange-400 text-[10px]">
+                          Late sign-out: NPC XP forfeited ({String(log.details.npcMinutesForfeited)} min)
+                        </div>
                       )}
                     </span>
                   </div>

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canAccessCBD } from "@/lib/roles";
 import { logAudit } from "@/lib/audit";
-import { calculateSignOutXP, craftLevelToTier, PROFESSION_RATES, startingBankData } from "@/lib/economy";
+import { craftLevelToTier, PROFESSION_RATES, startingBankData } from "@/lib/economy";
 import { levelFromXP, STARTING_SKILL_POINTS } from "@/data/xp-table";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
@@ -87,7 +87,10 @@ export async function POST(
   const isLateSignOut = daysSinceEvent > 8;
   const effectiveNpcMinutes = isLateSignOut ? 0 : signOut.npcMinutes;
 
-  const xpAwarded = calculateSignOutXP(eventDays, effectiveNpcMinutes);
+  const baseXP = eventDays * 6;
+  const npcXP = Math.floor(effectiveNpcMinutes / 30);
+  const maxXP = eventDays * 10;
+  const xpAwarded = Math.min(baseXP + npcXP, maxXP);
 
   // Update sign-out and registration in a transaction
   // Also set checkedOutAt if not already set (player sign-outs without staff checkout)
@@ -333,6 +336,14 @@ export async function POST(
       result: "processed",
       eventId: signOut.eventId,
       xpAwarded,
+      xpBreakdown: {
+        eventDays,
+        baseXP,
+        npcMinutes: effectiveNpcMinutes,
+        npcXP,
+        maxXP,
+        capped: baseXP + npcXP > maxXP,
+      },
       coinEarnings: coinEarnings || 0,
       skillsConfirmed: skillsConfirmed.length > 0 ? skillsConfirmed : undefined,
       ...(isLateSignOut ? { lateSignOut: true, npcMinutesForfeited: signOut.npcMinutes } : {}),
