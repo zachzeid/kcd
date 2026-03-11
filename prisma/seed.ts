@@ -2,6 +2,7 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { hash } from "bcryptjs";
 import path from "path";
+import { loreSeedEntries } from "./lore-seed";
 
 const url = process.env.DATABASE_URL || `file:${path.join(process.cwd(), "dev.db")}`;
 const authToken = process.env.DATABASE_AUTH_TOKEN || undefined;
@@ -1023,92 +1024,32 @@ async function main() {
   console.log("✓ Created 18 monster/NPC book entries");
 
   // ─── LORE ENTRIES ────────────────────────────────────────────────────────────
-  await prisma.loreEntry.createMany({
-    data: [
-      {
-        title: "The Battle of Thornwood Pass",
-        content: `In the autumn of the 42nd year of King Aldric's reign, a great battle was fought at Thornwood Pass. The forces of the Kingdom faced an unprecedented incursion of orcish tribes led by the fearsome warlord Gruk'tar Bonecrusher.\n\nThe battle raged for three days. Heroes emerged from unexpected places - a young cleric named Elara healed the wounded tirelessly, while the ranger Maeven's arrows found their marks in the darkness. On the third dawn, as hope waned, the cavalry of the Silver Order arrived, led by Commander Theron Brightblade.\n\nThough the kingdom prevailed, the cost was high. Many brave souls fell defending the pass, including the beloved Lord Cedric of Thornwood, who gave his life holding the line so others could retreat to safety.`,
-        summary: "Major battle at Thornwood Pass against orcish invaders. Kingdom victory but heavy casualties including Lord Cedric.",
-        source: "Mystic Quill - Autumn 2023",
-        year: 2023, month: 10,
-        locations: JSON.stringify(["Thornwood Pass", "Kingdom"]),
-        characters: JSON.stringify(["Gruk'tar Bonecrusher", "Elara", "Maeven", "Theron Brightblade", "Lord Cedric"]),
-        tags: JSON.stringify(["battle", "orcs", "war", "kingdom"]),
-        category: "story",
-      },
-      {
-        title: "In Memory: Lord Cedric of Thornwood",
-        content: `It is with heavy hearts that we remember Lord Cedric of Thornwood, who fell defending the pass that bears his family name. A seasoned warrior and beloved leader, he stood firm when others faltered, buying time for civilians to escape the orcish advance.\n\nHis sacrifice will not be forgotten. A memorial stone has been erected at the pass, and his son, Young Lord Marcus, has sworn to continue his father's legacy of service to the realm.`,
-        summary: "Memorial for Lord Cedric, fallen hero of Thornwood Pass. His son Marcus vows to continue his legacy.",
-        source: "Mystic Quill - Autumn 2023",
-        year: 2023, month: 11,
-        locations: JSON.stringify(["Thornwood Pass"]),
-        characters: JSON.stringify(["Lord Cedric", "Marcus of Thornwood"]),
-        tags: JSON.stringify(["death", "memorial", "hero"]),
-        category: "obituary",
-      },
-      {
-        title: "Autumn's End 2025 Event Recap",
-        content: `The harvest festival drew nearly 60 adventurers to face the rising dead from the ancient barrows. Kara Swiftblade led the charge against the barrow wights while Maeven's scouts tracked the source of the curse to a corrupted druidic circle.\n\nElara of the Silver Moon provided invaluable healing support throughout the weekend, keeping the front line standing during the final siege. Vaelith Stormweaver discovered crucial magical anomalies that pointed to deeper mysteries beneath the barrow mounds.\n\nThe weekend concluded with a spectacular bonfire ceremony purifying the corrupted ground.`,
-        summary: "Recap of Autumn's End 2025 event. Barrow delve, undead threat, druidic corruption, and purification ceremony.",
-        source: "Event Recap - Autumn's End 2025",
-        year: 2025, month: 10,
-        locations: JSON.stringify(["Ancient Barrows", "Druidic Circle"]),
-        characters: JSON.stringify(["Kara Swiftblade", "Maeven", "Elara", "Vaelith Stormweaver"]),
-        tags: JSON.stringify(["event", "undead", "harvest", "barrows", "druid"]),
-        category: "recap",
-      },
-      {
-        title: "Winter's Tale 2026 Event Recap",
-        content: `Nearly 80 adventurers braved the February cold to defend the realm from a mysterious winter curse. The weekend saw fierce combat as undead forces threatened the northern villages.\n\nA coalition of heroes worked tirelessly to uncover the source of the curse — an ancient artifact buried beneath the Frostpeak Temple. Special commendation to the party who successfully completed the Temple Delve module, recovering the Scepter of Eternal Winter.\n\nThe Saturday night ritual was spectacular, with over 30 participants combining their magical energies to shatter the curse. The weekend concluded with the traditional tournament, with Kara Swiftblade taking first place. Young Lord Marcus of Thornwood made a stirring appearance, swearing his oath at the memorial stone his father's comrades erected at the pass.\n\nThank you to all our NPCs, especially Maeven's player who ran monster camp tirelessly!`,
-        summary: "Recap of Winter's Tale 2026. Undead threat, Frostpeak Temple delve, curse-breaking ritual, Kara wins tournament, Marcus swears oath.",
-        source: "Event Recap - Winter's Tale 2026",
-        year: 2026, month: 2,
-        locations: JSON.stringify(["Frostpeak Temple", "Northern Villages", "Thornwood Pass Memorial"]),
-        characters: JSON.stringify(["Kara Swiftblade", "Marcus of Thornwood", "Maeven"]),
-        tags: JSON.stringify(["event", "undead", "curse", "tournament", "ritual"]),
-        category: "recap",
-      },
-      {
-        title: "Rumors from the Tavern",
-        content: `Whispers in the Golden Griffin speak of strange lights seen near the Old Mill after dark. Some say it's smugglers, others claim it's something far more sinister. The miller's daughter swears she heard voices chanting in an unknown tongue.\n\nMeanwhile, a mysterious hooded figure has been asking questions about the location of the Lost Temple of Mysteries. Several adventurers have followed leads into the Darkwood, but none have returned with answers. Some say this figure bears an uncanny resemblance to the elven scholar Vaelith Stormweaver.\n\nAnd perhaps most intriguing — the royal jeweler reported that someone commissioned a replica of the Crown of Stars, an artifact that was supposedly destroyed centuries ago. Why would anyone want a copy of a cursed crown?`,
-        summary: "Tavern rumors: Strange lights at Old Mill, mysterious figure (possibly Vaelith?) seeking Lost Temple, replica of cursed crown.",
-        source: "Mystic Quill - March 2026",
-        year: 2026, month: 3,
-        locations: JSON.stringify(["Golden Griffin Tavern", "Old Mill", "Darkwood", "Lost Temple of Mysteries"]),
-        characters: JSON.stringify(["Vaelith Stormweaver"]),
-        tags: JSON.stringify(["mystery", "tavern", "rumors", "temple", "artifact"]),
-        category: "rumor",
-      },
-      {
-        title: "New Trade Routes Open to Silverport",
-        content: `By decree of the Merchants' Guild, new trade routes have been established connecting Silverport to the eastern kingdoms. Caravans will depart weekly, carrying goods and opportunities for adventurers seeking work as guards.\n\nAll interested parties should register with the Guild Hall before the next departure on the 15th day of the Spring Moon.`,
-        summary: "Announcement: New trade routes to Silverport, weekly caravans seeking guards.",
-        source: "Mystic Quill - March 2026",
-        year: 2026, month: 3,
-        locations: JSON.stringify(["Silverport", "Eastern Kingdoms"]),
-        characters: JSON.stringify([]),
-        tags: JSON.stringify(["trade", "caravan", "opportunity"]),
-        category: "announcement",
-      },
-    ],
-  });
-  console.log("✓ Created 6 lore entries");
+  // Extracted from 135 Kanar Quill Archive newsletters (2006–2025)
+  await prisma.loreEntry.createMany({ data: loreSeedEntries });
+  console.log(`✓ Created ${loreSeedEntries.length} lore entries from Kanar Quill Archives`);
 
   // ─── LORE CHARACTERS ─────────────────────────────────────────────────────────
+  // Real characters from the Kanar Quill Archives spanning ~998–1025 TM
   await prisma.loreCharacter.createMany({
     data: [
-      { name: "Theron Brightblade", title: "Commander", race: "Human", class: "Warrior", faction: "Silver Order", description: "Commander of the Silver Order cavalry. Distinguished by his shining plate armor and tactical brilliance.", firstMentioned: "Mystic Quill - Autumn 2023" },
-      { name: "Gruk'tar Bonecrusher", title: "Warlord", race: "Orc", class: "Warrior", faction: "Orcish Tribes", description: "Fearsome orcish warlord who united multiple tribes for the assault on Thornwood Pass. Last seen retreating into the Badlands.", firstMentioned: "Mystic Quill - Autumn 2023" },
-      { name: "Lord Cedric", title: "Lord", race: "Human", class: "Warrior", faction: "Kingdom", description: "Fallen lord of Thornwood. Died heroically holding Thornwood Pass. Father of Lord Marcus.", firstMentioned: "Mystic Quill - Autumn 2023" },
-      { name: "Kara Swiftblade", title: "Tournament Champion", race: "Human", class: "Warrior", faction: null, description: "Tournament champion. Won the Winter's Tale 2026 tournament. Known for incredible speed and technique.", firstMentioned: "Event Recap - Autumn's End 2025", assignedToId: p1.id },
-      { name: "Maeven", title: "Ranger", race: "Forest Elf", class: "Rogue", faction: null, description: "Legendary ranger whose arrows never miss. Played crucial role in the Battle of Thornwood Pass.", firstMentioned: "Mystic Quill - Autumn 2023", assignedToId: p2.id },
-      { name: "Elara", title: "Healer", race: "Human", class: "Cleric", faction: "Temple of the Silver Moon", description: "Devoted healer who tended the wounded tirelessly during the Battle of Thornwood Pass.", firstMentioned: "Mystic Quill - Autumn 2023", assignedToId: p3.id },
-      { name: "Marcus of Thornwood", title: "Young Lord", race: "Human", class: "Warrior", faction: "Kingdom", description: "Son of the fallen Lord Cedric. Sworn to continue his father's legacy of service to the realm.", firstMentioned: "Mystic Quill - Autumn 2023", assignedToId: p4.id },
-      { name: "Vaelith Stormweaver", title: "Scholar", race: "Common Elf", class: "Mage", faction: null, description: "Elven scholar seeking the Lost Temple of Mysteries. Rumored to have commissioned a replica of the Crown of Stars.", firstMentioned: "Mystic Quill - March 2026", assignedToId: p5.id },
+      { name: "Sir Xandrick von Olanov", title: "Baron of Ausdauer", race: "Human", class: "Warrior", faction: "Barony of Ausdauer", description: "Rebel knight who published a manifesto against Novashan's nobility, took Winterfell, freed Mythindor's body via the Staff of the Green Witch, and was eventually redeemed as Baron of Ausdauer.", firstMentioned: "Novashan Quill - June 998" },
+      { name: "Duke Sir Mythindor Wanderlust", title: "Duke of Anadar", race: "Human", class: "Warrior", faction: "House Chaos", description: "Founder of House Chaos, hero of the Tommarin Wars, Duke of Anadar. Died defending Wynderfel against the Stormlord's horde. Body claimed by a dragon, later freed from necromancy by Xandrick.", firstMentioned: "Mystic Quill - May 1021" },
+      { name: "Countess Felicity Ashenwood", title: "Countess of Autruche", race: "Human", class: "Warrior", faction: "Kingdom of Novashan", description: "One of Novashan's longest-serving nobles. Elevated from Baroness to Countess in 1009. Led the mission to free Mythindor's body. Master of Heralds, diplomat, and cultural patron across three decades.", firstMentioned: "Novashan Quill - October 998" },
+      { name: "King Daffyd Belthshazzar", title: "King of Novashan", race: "Human", class: "Warrior", faction: "Kingdom of Novashan", description: "Son of Prince Duncan (lineage questioned). Ascended throne ~1013. Led Novashan through the war with Narrdmyr. Went missing in 1024. Sandy-haired unlike the dark Belthshazzar line.", firstMentioned: "Mystic Quill - June 1009" },
+      { name: "Baroness Karigan D'Morkishky D'Kalin", title: "Baroness", race: "Human", class: "Warrior", faction: "Barony of Ausdauer", description: "Rose from Seneschal to Baroness of Ausdauer. Coronated in Ilveresh 1022. Retreated in grief after Sir Tralik Norwood's assassination in 1025.", firstMentioned: "Mystic Quill - December 1020", assignedToId: p1.id },
+      { name: "Sir Tralik Norwood", title: "Knight and Poet", race: "Human", class: "Warrior", faction: "Kingdom of Novashan", description: "Knight, poet, builder of Temple Haven, co-founder of the Stag and Hound Inn. Oversaw countless construction projects. Assassinated in August 1025. Killer never found.", firstMentioned: "Mystic Quill - December 1020", assignedToId: p2.id },
+      { name: "Sir Korra Stonebrooke", title: "General of Meraki", race: "Human", class: "Warrior", faction: "Barony of Meraki", description: "Rose from Captain of the Town Watch to Master of the College of Heralds to General of Barony Meraki. Killed in battle during the northern campaign of 1025. Body seized by the enemy.", firstMentioned: "Mystic Quill - November 2016", assignedToId: p3.id },
+      { name: "Baron Miloc Elderhart", title: "Baron", race: "Human", class: "Warrior", faction: "Kingdom of Novashan", description: "Knighted as Armiger of Prince Duncan in the Night of Atonement (1008). Publicly confronted critic 'G' in 1022. Rose to Baron by 1025. Model of chivalry and humility.", firstMentioned: "Novashan Quill - July 1008", assignedToId: p4.id },
+      { name: "Sir Leveer Silverleaf", title: "Knight of the Thistle", race: "Common Elf", class: "Warrior", faction: "Order of the Thistle", description: "Earned knighthood during the Shadow War. Authored treatises on chivalric virtues: Temperance, Fortitude, Charity. Rescued Rose Fletcher from slavers at the Bannor Nogath chapter house.", firstMentioned: "Novashan Quill - June 1008", assignedToId: p5.id },
+      { name: "BeastLord Bearskinner", title: "BeastLord", race: "Human", class: "Warrior", faction: "Barbarian Tribes", description: "Barbarian leader who claimed Novashani lands and built Hammerhalt. Gained dwarven Baron Thordrun as an ally. Met with Prince Duncan. A direct challenge to the Princedom's authority.", firstMentioned: "Mystic Quill - May 1009" },
+      { name: "Duchess Morrigan MacGregor", title: "Duchess of Scotia", race: "Human", class: "Warrior", faction: "Duchy of Scotia", description: "Led Scotia to independence after the civil war sparked by Duke Ian MacGregor's execution. Formally declared Scotian sovereignty in 1024. Allied with Novashan.", firstMentioned: "Mystic Quill - September 2024" },
+      { name: "Princess Arania", title: "Claimant to Narrdmyr Throne", race: "Human", class: "Warrior", faction: "Duchy Erin Alliance", description: "Surfaced in 1025 claiming King William tried to assassinate her. Claims the Narrdmyr throne. Allied with Duchy Erin and Barony Cherbourg.", firstMentioned: "Mystic Quill - March 2025" },
+      { name: "Durgan Oakhart", title: "Innkeeper", race: "Human", class: "Warrior", faction: null, description: "Co-founder of the Stag and Hound Inn in Crossroads with Sir Tralik Norwood. Frontier trader and smith who takes commissions.", firstMentioned: "Mystic Quill - December 1020" },
+      { name: "Grand Magus Vai Dasha Vittorio", title: "Grand Magus", race: "Human", class: "Mage", faction: "Enchanting Guild", description: "Grand Magus of the North. Guild Master of Enchanting in Wyndover. Seeks literate magic users for employment.", firstMentioned: "Mystic Quill - April 1021" },
+      { name: "Valrik Blood-Wing Ralthorne", title: "Bandit Lord", race: "Human", class: "Rogue", faction: "Crimson Crows", description: "Leader of the Crimson Crows bandit organization. Wears a wolf face. Besieged and seized control of Wrendale. Operates from the Ruins of Char.", firstMentioned: "Mystic Quill - April 2025" },
     ],
   });
-  console.log("✓ Created 8 lore characters");
+  console.log("✓ Created 15 lore characters from Kanar Quill Archives");
 
   console.log("✓ No profession earnings (clean slate)");
 
@@ -1358,7 +1299,7 @@ async function main() {
   console.log("  Inactive: Brynn the Bold, Fenwick Thornfoot, Brother Aldous,");
   console.log("            Sable Nightwhisper, Old Garreth");
   console.log("Sign-outs: none (clean slate for testing)");
-  console.log("Lore: 6 entries, 8 lore characters (5 assigned to players)");
+  console.log(`Lore: ${loreSeedEntries.length} entries from Kanar Quill Archives (998–1025 TM), 15 lore characters (5 assigned to players)`);
   console.log(`Locations: ${locations.length} (towns, ruins, regions from the Bellanmo map)`);
 }
 
