@@ -7,6 +7,7 @@ import { CHARACTER_STATUSES, INACTIVE_LABEL, type CharacterStatus } from "@/lib/
 import { ITEM_TYPES } from "@/lib/economy";
 import { races } from "@/data/races";
 import { classes } from "@/data/classes";
+import { xpTable } from "@/data/xp-table";
 
 function formatSilver(copper: number): string {
   const silver = copper / 100;
@@ -265,6 +266,17 @@ export default function CharacterSummaryPage() {
   const physDevPurchases = d.skills.find((s) => s.skillName === "Physical Development")?.purchaseCount ?? 0;
   const totalBodyPoints = bodyPoints + physDevPurchases * 4;
 
+  // Points to spend: total pool (140 starting + XP earned) minus points spent
+  const earnedXP = history?.totalXP ?? d.totalXP ?? 0;
+  const totalPool = 140 + earnedXP;
+  const pointsToSpend = totalPool - d.skillPointsSpent;
+
+  // XP to next level
+  const nextLevelIndex = d.level; // xpTable[level] gives XP needed for level+1
+  const xpToNextLevel = nextLevelIndex < xpTable.length
+    ? xpTable[nextLevelIndex] - earnedXP
+    : null; // max level reached
+
   // Group tags by itemType
   const tagsByType: Record<string, TagItem[]> = {};
   for (const tag of tags) {
@@ -356,17 +368,20 @@ export default function CharacterSummaryPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <StatCard
-            label="Skill Points"
-            value={`${d.skillPointsSpent} / ${140 + (history?.totalXP ?? d.totalXP ?? 0)}`}
+            label="Points to Spend"
+            value={String(pointsToSpend)}
+            subtitle={`${d.skillPointsSpent} of ${totalPool} spent`}
+          />
+          <StatCard
+            label="XP Earned"
+            value={String(earnedXP)}
+            subtitle={xpToNextLevel !== null ? `${xpToNextLevel} XP to level ${d.level + 1}` : "Max level"}
           />
           {history && (
-            <>
-              <StatCard label="Total XP" value={String(history.totalXP)} />
-              <StatCard
-                label="Events Attended"
-                value={String(history.eventsAttended)}
-              />
-            </>
+            <StatCard
+              label="Events Attended"
+              value={String(history.eventsAttended)}
+            />
           )}
         </div>
 
@@ -873,13 +888,14 @@ function TagsSection({
   );
 }
 
-function StatCard({ label, value, highlight }: { label: string; value: string; highlight?: "red" | "yellow" }) {
+function StatCard({ label, value, subtitle, highlight }: { label: string; value: string; subtitle?: string; highlight?: "red" | "yellow" }) {
   const borderColor = highlight === "red" ? "border-red-700" : highlight === "yellow" ? "border-yellow-700" : "border-gray-800";
   const textColor = highlight === "red" ? "text-red-400" : highlight === "yellow" ? "text-yellow-400" : "text-white";
   return (
     <div className={`p-3 bg-gray-900 rounded-lg border ${borderColor} text-center`}>
       <div className={`${textColor} font-bold text-lg`}>{value}</div>
       <div className="text-gray-500 text-xs uppercase">{label}</div>
+      {subtitle && <div className="text-gray-600 text-[10px] mt-0.5">{subtitle}</div>}
     </div>
   );
 }

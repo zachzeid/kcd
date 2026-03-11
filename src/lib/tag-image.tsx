@@ -62,8 +62,8 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
   // All font sizes and spacing scale relative to card height
   const s = (pct: number) => Math.round(h * pct);
 
-  // Seal size — fits in the center band between top and bottom text
-  const sealSize = s(0.42);
+  // Seal size — scales to full card height as a watermark
+  const sealSize = h;
 
   return new ImageResponse(
     (
@@ -174,7 +174,7 @@ export function generateTagImageResponse(opts: TagImageOptions): ImageResponse {
               alt="K1 Seal"
               width={sealSize}
               height={sealSize}
-              style={{ opacity: 0.18 }}
+              style={{ opacity: 0.12 }}
             />
           </div>
         )}

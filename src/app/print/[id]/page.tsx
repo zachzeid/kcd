@@ -136,7 +136,7 @@ export default function PrintPage() {
               value={raceInfo.bonusSkills.map((s) => `${s.name} x${s.count}`).join(", ")}
             />
           )}
-          <InfoRow label="Skill Points Used" value={`${character.skillPointsSpent} / ${140 + (character.totalXP ?? 0)}`} />
+          <InfoRow label="Points Spent" value={`${character.skillPointsSpent} of ${140 + (character.totalXP ?? 0)} (${140 + (character.totalXP ?? 0) - character.skillPointsSpent} to spend)`} />
           <InfoRow label="Starting Silver Spent" value={`${character.silverSpent} / 50`} />
           {raceInfo && (
             <InfoRow label="Costuming" value={raceInfo.costumingRequirements} />
@@ -198,7 +198,7 @@ export default function PrintPage() {
         <>
           <SectionHeader>Career Progression</SectionHeader>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "0.5rem", marginBottom: "1rem" }}>
-            <StatBox label="Total XP" value={history.totalXP} />
+            <StatBox label="XP Earned" value={history.totalXP} />
             <StatBox label="Events" value={history.eventsAttended} />
             <StatBox label="NPC Hours" value={Math.floor(history.totalNPCMinutes / 60)} />
             <StatBox label="Next Level XP" value={character.level < 30 ? xpNeeded - xpProgress : 0} />
