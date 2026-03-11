@@ -33,16 +33,19 @@ export default function PrintPage() {
   const params = useParams();
   const [character, setCharacter] = useState<Character | null>(null);
   const [history, setHistory] = useState<CharacterHistory | null>(null);
+  const [bankBalance, setBankBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       fetch(`/api/characters/${params.id}`).then((r) => r.json()),
       fetch(`/api/characters/${params.id}/history`).then((r) => r.json()),
+      fetch(`/api/characters/${params.id}/bank`).then((r) => r.ok ? r.json() : null),
     ])
-      .then(([charData, historyData]) => {
+      .then(([charData, historyData, bankData]) => {
         setCharacter(charData.data);
         setHistory(historyData);
+        setBankBalance(bankData?.bank?.balanceFormatted ?? null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -137,7 +140,7 @@ export default function PrintPage() {
             />
           )}
           <InfoRow label="Points Spent" value={`${character.skillPointsSpent} of ${140 + (character.totalXP ?? 0)} (${140 + (character.totalXP ?? 0) - character.skillPointsSpent} to spend)`} />
-          <InfoRow label="Starting Silver Spent" value={`${character.silverSpent} / 50`} />
+          <InfoRow label="Bank" value={bankBalance ?? "No bank"} />
           {raceInfo && (
             <InfoRow label="Costuming" value={raceInfo.costumingRequirements} />
           )}
