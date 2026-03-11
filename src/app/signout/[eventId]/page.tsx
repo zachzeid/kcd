@@ -134,6 +134,91 @@ function StudentSearchDropdown({
   );
 }
 
+/** Location dropdown grouped by region with custom entry fallback */
+function LocationSelect({
+  locations,
+  value,
+  customValue,
+  onChange,
+  onCustomChange,
+  disabled,
+  label,
+  placeholder,
+  inputClass,
+}: {
+  locations: { id: string; name: string; type: string; region: string | null }[];
+  value: string;
+  customValue: string;
+  onChange: (v: string) => void;
+  onCustomChange: (v: string) => void;
+  disabled: boolean;
+  label: string;
+  placeholder: string;
+  inputClass: string;
+}) {
+  const isCustom = value === "__custom";
+  const showCustomInput = isCustom || (customValue && !locations.some((l) => l.name === value));
+
+  return (
+    <div>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={inputClass}
+      >
+        <option value="">{placeholder}</option>
+        {(() => {
+          const grouped: Record<string, typeof locations> = {};
+          for (const loc of locations.filter((l) => l.type !== "region")) {
+            const key = loc.region || "Other";
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(loc);
+          }
+          return Object.entries(grouped)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([region, locs]) => (
+              <optgroup key={region} label={region}>
+                {locs.sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
+                  <option key={loc.id} value={loc.name}>
+                    {loc.name}{loc.type !== "town" ? ` (${loc.type})` : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ));
+        })()}
+      </select>
+      {showCustomInput ? (
+        <input
+          type="text"
+          value={customValue}
+          onChange={(e) => onCustomChange(e.target.value)}
+          disabled={disabled}
+          placeholder={`Enter ${label.toLowerCase()} name...`}
+          className={`${inputClass} mt-2`}
+        />
+      ) : null}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => {
+          if (isCustom) {
+            onChange("");
+            onCustomChange("");
+          } else {
+            onChange("__custom");
+          }
+        }}
+        className="text-xs text-amber-500 hover:text-amber-400 mt-1 disabled:opacity-50"
+      >
+        {isCustom
+          ? `\u2190 Back to location list`
+          : `${label} not listed? Enter manually`}
+      </button>
+    </div>
+  );
+}
+
 /** Single-select dropdown for picking a player name from attendees */
 function PlayerSelectDropdown({
   attendees,
@@ -1401,6 +1486,20 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             {betweenEventAction === "adventuring" && (
               <div className="space-y-4 pt-2 border-t border-gray-800">
                 <div>
+                  <label className={labelClass}>Location</label>
+                  <LocationSelect
+                    locations={locations}
+                    value={betweenEventDetails.location ?? ""}
+                    customValue={betweenEventDetails.customLocation ?? ""}
+                    onChange={(v) => updateBEDetail("location", v)}
+                    onCustomChange={(v) => updateBEDetail("customLocation", v)}
+                    disabled={readOnly}
+                    label="Location"
+                    placeholder="Select a location..."
+                    inputClass={inputClass}
+                  />
+                </div>
+                <div>
                   <label className={labelClass}>Description of Adventure</label>
                   <textarea
                     value={betweenEventDetails.description ?? ""}
@@ -1470,13 +1569,16 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 </div>
                 <div>
                   <label className={labelClass}>Location</label>
-                  <input
-                    type="text"
+                  <LocationSelect
+                    locations={locations}
                     value={betweenEventDetails.location ?? ""}
-                    onChange={(e) => updateBEDetail("location", e.target.value)}
+                    customValue={betweenEventDetails.customLocation ?? ""}
+                    onChange={(v) => updateBEDetail("location", v)}
+                    onCustomChange={(v) => updateBEDetail("customLocation", v)}
                     disabled={readOnly}
+                    label="Location"
                     placeholder="Where are you conducting research?"
-                    className={inputClass}
+                    inputClass={inputClass}
                   />
                 </div>
                 <div>
@@ -1623,61 +1725,17 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                 {/* Destination — from Locations table */}
                 <div>
                   <label className={labelClass}>Destination</label>
-                  <select
+                  <LocationSelect
+                    locations={locations}
                     value={betweenEventDetails.destination ?? ""}
-                    onChange={(e) => updateBEDetail("destination", e.target.value)}
+                    customValue={betweenEventDetails.customDestination ?? ""}
+                    onChange={(v) => updateBEDetail("destination", v)}
+                    onCustomChange={(v) => updateBEDetail("customDestination", v)}
                     disabled={readOnly}
-                    className={inputClass}
-                  >
-                    <option value="">Select a destination...</option>
-                    {(() => {
-                      const grouped: Record<string, typeof locations> = {};
-                      for (const loc of locations.filter((l) => l.type !== "region")) {
-                        const key = loc.region || "Other";
-                        if (!grouped[key]) grouped[key] = [];
-                        grouped[key].push(loc);
-                      }
-                      return Object.entries(grouped)
-                        .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([region, locs]) => (
-                          <optgroup key={region} label={region}>
-                            {locs.sort((a, b) => a.name.localeCompare(b.name)).map((loc) => (
-                              <option key={loc.id} value={loc.name}>
-                                {loc.name}{loc.type !== "town" ? ` (${loc.type})` : ""}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ));
-                    })()}
-                  </select>
-                  {/* Fallback for custom destination not in the list */}
-                  {betweenEventDetails.destination === "__custom" || (betweenEventDetails.customDestination && !locations.some((l) => l.name === betweenEventDetails.destination)) ? (
-                    <input
-                      type="text"
-                      value={betweenEventDetails.customDestination ?? ""}
-                      onChange={(e) => updateBEDetail("customDestination", e.target.value)}
-                      disabled={readOnly}
-                      placeholder="Enter destination name..."
-                      className={`${inputClass} mt-2`}
-                    />
-                  ) : null}
-                  <button
-                    type="button"
-                    disabled={readOnly}
-                    onClick={() => {
-                      if (betweenEventDetails.destination === "__custom") {
-                        updateBEDetail("destination", "");
-                        updateBEDetail("customDestination", "");
-                      } else {
-                        updateBEDetail("destination", "__custom");
-                      }
-                    }}
-                    className="text-xs text-amber-500 hover:text-amber-400 mt-1 disabled:opacity-50"
-                  >
-                    {betweenEventDetails.destination === "__custom"
-                      ? "← Back to location list"
-                      : "Destination not listed? Enter manually"}
-                  </button>
+                    label="Destination"
+                    placeholder="Select a destination..."
+                    inputClass={inputClass}
+                  />
                 </div>
 
                 {/* Method of Travel — structured per rulebook */}
@@ -1779,6 +1837,20 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
             {betweenEventAction === "governing" && (
               <div className="space-y-4 pt-2 border-t border-gray-800">
                 <div>
+                  <label className={labelClass}>Location</label>
+                  <LocationSelect
+                    locations={locations}
+                    value={betweenEventDetails.location ?? ""}
+                    customValue={betweenEventDetails.customLocation ?? ""}
+                    onChange={(v) => updateBEDetail("location", v)}
+                    onCustomChange={(v) => updateBEDetail("customLocation", v)}
+                    disabled={readOnly}
+                    label="Location"
+                    placeholder="Where are you governing?"
+                    inputClass={inputClass}
+                  />
+                </div>
+                <div>
                   <label className={labelClass}>Actions Being Taken</label>
                   <textarea
                     value={betweenEventDetails.actions ?? ""}
@@ -1786,17 +1858,6 @@ export default function SignOutPage({ params }: { params: Promise<{ eventId: str
                     disabled={readOnly}
                     placeholder="What governing actions are you taking?"
                     className={textareaClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Affected Locations / People</label>
-                  <input
-                    type="text"
-                    value={betweenEventDetails.affectedLocations ?? ""}
-                    onChange={(e) => updateBEDetail("affectedLocations", e.target.value)}
-                    disabled={readOnly}
-                    placeholder="Who or what is affected?"
-                    className={inputClass}
                   />
                 </div>
                 <div>
