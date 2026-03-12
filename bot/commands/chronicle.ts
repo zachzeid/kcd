@@ -61,53 +61,65 @@ export async function handleChronicle(interaction: ChatInputCommandInteraction) 
         .setStyle(ButtonStyle.Danger),
     );
 
-    const response = await interaction.editReply({
+    await interaction.editReply({
       content: "**Chronicle Draft** — Review before saving to the permanent record:",
       embeds: [previewEmbed],
       components: [row],
     });
 
+    // Fetch the reply as a Message so we can attach a collector
+    const message = await interaction.fetchReply();
+
     // Wait for GM to approve or discard (5 minute timeout)
-    try {
-      const confirm = await response.awaitMessageComponent({
-        componentType: ComponentType.Button,
-        filter: (i) => i.user.id === interaction.user.id,
-        time: 300_000,
-      });
+    const collector = message.createMessageComponentCollector({
+      componentType: ComponentType.Button,
+      filter: (i) => i.user.id === interaction.user.id,
+      time: 300_000,
+      max: 1,
+    });
 
-      if (confirm.customId === "chronicle_approve") {
-        await confirm.deferUpdate();
-        const saved = await saveChronicle(session, result, interaction.user.id);
+    collector.on("collect", async (confirm) => {
+      try {
+        if (confirm.customId === "chronicle_approve") {
+          await confirm.deferUpdate();
+          const saved = await saveChronicle(session, result, interaction.user.id);
 
-        const savedEmbed = new EmbedBuilder()
-          .setTitle("Chronicle Recorded")
-          .setDescription(result.recap)
-          .addFields(
-            { name: "Event", value: session.eventTitle, inline: true },
-            { name: "Characters", value: String(saved.charactersLinked), inline: true },
-            { name: "Messages", value: String(session.messages.length), inline: true },
-          )
-          .setColor(0x2ecc71)
-          .setFooter({ text: "K1 Chronicler — this event is now part of world history" })
-          .setTimestamp();
+          const savedEmbed = new EmbedBuilder()
+            .setTitle("Chronicle Recorded")
+            .setDescription(result.recap)
+            .addFields(
+              { name: "Event", value: session.eventTitle, inline: true },
+              { name: "Characters", value: String(saved.charactersLinked), inline: true },
+              { name: "Messages", value: String(session.messages.length), inline: true },
+            )
+            .setColor(0x2ecc71)
+            .setFooter({ text: "K1 Chronicler — this event is now part of world history" })
+            .setTimestamp();
 
-        endSession(channelId);
-        await interaction.editReply({ content: null, embeds: [savedEmbed], components: [] });
-      } else {
-        endSession(channelId);
-        await confirm.update({
-          content: "Chronicle discarded. The recording session has ended.",
-          embeds: [],
+          endSession(channelId);
+          await interaction.editReply({ content: null, embeds: [savedEmbed], components: [] });
+        } else {
+          endSession(channelId);
+          await confirm.update({
+            content: "Chronicle discarded. The recording session has ended.",
+            embeds: [],
+            components: [],
+          });
+        }
+      } catch (err) {
+        console.error("Chronicle button handler error:", err);
+      }
+    });
+
+    collector.on("end", async (collected) => {
+      if (collected.size === 0) {
+        // Timeout — don't end the session, let the GM try again
+        await interaction.editReply({
+          content: "Approval timed out. The session is still active — run `/chronicle` again when ready.",
           components: [],
         });
       }
-    } catch {
-      // Timeout — don't end the session, let the GM try again
-      await interaction.editReply({
-        content: "Approval timed out. The session is still active — run `/chronicle` again when ready.",
-        components: [],
-      });
-    }
+    });
   } catch (error) {
     console.error("Chronicle synthesis failed:", error);
     await interaction.editReply({
