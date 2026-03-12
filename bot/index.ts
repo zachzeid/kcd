@@ -19,8 +19,9 @@ const client = new Client({
 });
 
 // Command registry
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const commands = new Collection<string, {
-  data: ReturnType<typeof eventStartCommand>;
+  data: { toJSON: () => any };
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }>();
 
