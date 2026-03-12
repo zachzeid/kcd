@@ -9,6 +9,7 @@ export interface RecordedMessage {
 }
 
 export interface EventSession {
+  eventId: string; // Links to Event table in the app
   eventTitle: string;
   channelId: string;
   startedBy: string; // Discord user ID of the GM who started it
@@ -19,8 +20,9 @@ export interface EventSession {
 // Active sessions keyed by channel ID
 const sessions = new Map<string, EventSession>();
 
-export function startSession(channelId: string, eventTitle: string, startedBy: string): EventSession {
+export function startSession(channelId: string, eventTitle: string, startedBy: string, eventId: string): EventSession {
   const session: EventSession = {
+    eventId,
     eventTitle,
     channelId,
     startedBy,

@@ -114,6 +114,16 @@ interface LoreMention {
   category: string;
 }
 
+interface ChronicleEntry {
+  id: string;
+  eventId: string;
+  eventName: string;
+  eventDate: string;
+  chronicleTitle: string;
+  summary: string;
+  createdAt: string;
+}
+
 interface CharacterResponse {
   id: string;
   name: string;
@@ -199,6 +209,7 @@ export default function CharacterSummaryPage() {
   const [history, setHistory] = useState<CharacterHistory | null>(null);
   const [bank, setBank] = useState<BankData | null>(null);
   const [loreMentions, setLoreMentions] = useState<LoreMention[]>([]);
+  const [chronicles, setChronicles] = useState<ChronicleEntry[]>([]);
   const [tags, setTags] = useState<TagItem[]>([]);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -236,6 +247,11 @@ export default function CharacterSummaryPage() {
             .then((data) => setLoreMentions(data.entries ?? []))
             .catch(() => setLoreMentions([]));
         }
+        // Fetch event chronicles for this character
+        fetch(`/api/characters/${params.id}/chronicles`)
+          .then((r) => (r.ok ? r.json() : []))
+          .then((data) => setChronicles(Array.isArray(data) ? data : []))
+          .catch(() => setChronicles([]));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -636,6 +652,33 @@ export default function CharacterSummaryPage() {
                     {entry.summary}
                   </p>
                 </Link>
+              ))}
+            </div>
+          </CollapsibleSection>
+        )}
+
+        {/* Event Chronicles */}
+        {chronicles.length > 0 && (
+          <CollapsibleSection title="Event Chronicles" count={chronicles.length}>
+            <div className="space-y-3">
+              {chronicles.map((c) => (
+                <div
+                  key={c.id}
+                  className="p-3 bg-gray-900 rounded-lg border border-gray-800"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-white font-medium text-sm">
+                      {c.chronicleTitle}
+                    </span>
+                    <span className="text-gray-500 text-xs">
+                      {new Date(c.eventDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="text-amber-500/70 text-xs mb-1.5">{c.eventName}</div>
+                  <p className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
+                    {c.summary}
+                  </p>
+                </div>
               ))}
             </div>
           </CollapsibleSection>

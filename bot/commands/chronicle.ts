@@ -40,7 +40,7 @@ export async function handleChronicle(interaction: ChatInputCommandInteraction) 
     return;
   }
 
-  // Defer — Claude synthesis takes time
+  // Defer immediately — Claude synthesis takes 5-30 seconds
   await interaction.deferReply();
 
   try {
@@ -77,15 +77,15 @@ export async function handleChronicle(interaction: ChatInputCommandInteraction) 
 
       if (confirm.customId === "chronicle_approve") {
         await confirm.deferUpdate();
-        const saved = await saveChronicle(session.eventTitle, result);
+        const saved = await saveChronicle(session, result, interaction.user.id);
 
         const savedEmbed = new EmbedBuilder()
           .setTitle("Chronicle Recorded")
           .setDescription(result.recap)
           .addFields(
-            { name: "Characters Updated", value: String(saved.charactersUpdated), inline: true },
-            { name: "Lore Entries Created", value: String(saved.loreEntriesCreated), inline: true },
-            { name: "Messages Chronicled", value: String(session.messages.length), inline: true },
+            { name: "Event", value: session.eventTitle, inline: true },
+            { name: "Characters", value: String(saved.charactersLinked), inline: true },
+            { name: "Messages", value: String(session.messages.length), inline: true },
           )
           .setColor(0x2ecc71)
           .setFooter({ text: "K1 Chronicler — this event is now part of world history" })
@@ -130,7 +130,7 @@ function buildPreviewEmbed(eventTitle: string, messageCount: number, result: Chr
     embed.addFields({ name: `Character Updates (${result.characterUpdates.length})`, value: charPreview.slice(0, 1024) });
   }
 
-  // Lore entries preview
+  // Lore preview
   if (result.loreEntries.length > 0) {
     const lorePreview = result.loreEntries
       .map((l) => `**${l.title}**\n${l.summary}`)
@@ -143,45 +143,64 @@ function buildPreviewEmbed(eventTitle: string, messageCount: number, result: Chr
 }
 
 async function saveChronicle(
-  eventTitle: string,
-  result: ChronicleResult
-): Promise<{ charactersUpdated: number; loreEntriesCreated: number }> {
-  let charactersUpdated = 0;
+  session: { eventId: string; eventTitle: string; messages: { length: number } },
+  result: ChronicleResult,
+  chronicledBy: string
+): Promise<{ charactersLinked: number }> {
+  // Combine all lore entries into one narrative for the EventChronicle
+  const narrative = result.loreEntries
+    .map((l) => `## ${l.title}\n\n${l.content}`)
+    .join("\n\n---\n\n");
 
-  // Update character histories
+  const allLocations = [...new Set(result.loreEntries.flatMap((l) => l.locations))];
+  const allTags = [...new Set(result.loreEntries.flatMap((l) => l.tags))];
+
+  // Create the EventChronicle
+  const chronicle = await prisma.eventChronicle.create({
+    data: {
+      eventId: session.eventId,
+      title: result.loreEntries[0]?.title ?? session.eventTitle,
+      recap: result.recap,
+      narrative,
+      locations: JSON.stringify(allLocations),
+      tags: JSON.stringify(allTags),
+      messageCount: session.messages.length,
+      chronicledBy,
+    },
+  });
+
+  // Create CharacterChronicle entries linked to actual characters
+  let charactersLinked = 0;
   for (const update of result.characterUpdates) {
+    // Find the character by name in the DB
     const characters = await prisma.character.findMany({
       where: { status: { not: "deleted" } },
     });
 
-    // Find character by name match in the JSON data blob
     for (const char of characters) {
       const data = JSON.parse(char.data as string);
-      if (data.name === update.characterName) {
-        // Append to history with a clear event delimiter
-        const existingHistory = data.history || "";
-        const timestamp = new Date().toLocaleDateString("en-US", { month: "long", year: "numeric" });
-        const entry = `\n\n--- ${eventTitle} (${timestamp}) ---\n${update.historyEntry}`;
-        data.history = existingHistory + entry;
-
-        await prisma.character.update({
-          where: { id: char.id },
-          data: { data: JSON.stringify(data) },
+      if (data.name.toLowerCase() === update.characterName.toLowerCase()) {
+        await prisma.characterChronicle.create({
+          data: {
+            chronicleId: chronicle.id,
+            characterId: char.id,
+            summary: update.historyEntry,
+          },
         });
-        charactersUpdated++;
+        charactersLinked++;
         break;
       }
     }
   }
 
-  // Create lore entries
+  // Also create a LoreEntry for the Compendium
   for (const lore of result.loreEntries) {
     await prisma.loreEntry.create({
       data: {
         title: lore.title,
         content: lore.content,
         summary: lore.summary,
-        source: `Online Event — ${eventTitle}`,
+        source: `Online Event — ${session.eventTitle}`,
         year: new Date().getFullYear(),
         month: new Date().getMonth() + 1,
         locations: JSON.stringify(lore.locations),
@@ -192,5 +211,5 @@ async function saveChronicle(
     });
   }
 
-  return { charactersUpdated, loreEntriesCreated: result.loreEntries.length };
+  return { charactersLinked };
 }

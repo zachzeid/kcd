@@ -306,3 +306,32 @@ CREATE TABLE IF NOT EXISTS Location (
   createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ─── Event Chronicles (Discord RP synthesis) ────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS EventChronicle (
+  id TEXT PRIMARY KEY,
+  eventId TEXT NOT NULL REFERENCES Event(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  recap TEXT NOT NULL,
+  narrative TEXT NOT NULL,
+  locations TEXT,
+  tags TEXT,
+  messageCount INTEGER NOT NULL DEFAULT 0,
+  chronicledBy TEXT,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS EventChronicle_eventId_idx ON EventChronicle(eventId);
+
+CREATE TABLE IF NOT EXISTS CharacterChronicle (
+  id TEXT PRIMARY KEY,
+  chronicleId TEXT NOT NULL REFERENCES EventChronicle(id) ON DELETE CASCADE,
+  characterId TEXT NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+  summary TEXT NOT NULL,
+  createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS CharacterChronicle_chronicleId_idx ON CharacterChronicle(chronicleId);
+CREATE INDEX IF NOT EXISTS CharacterChronicle_characterId_idx ON CharacterChronicle(characterId);
