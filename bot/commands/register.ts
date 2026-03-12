@@ -42,21 +42,17 @@ export async function handleRegisterAutocomplete(interaction: AutocompleteIntera
   const focused = interaction.options.getFocused().toLowerCase();
   const discordId = interaction.user.id;
 
-  // Find the user by discordId
+  // Find the user by discordId (may not be linked yet)
   const user = await prisma.user.findUnique({ where: { discordId } });
 
-  if (!user) {
-    // Not linked yet — show a hint
-    await interaction.respond([
-      { name: "Link your account first: provide your email option", value: "__unlinked__" },
-    ]);
-    return;
-  }
-
-  // Fetch this user's non-deleted characters
-  const characters = await prisma.character.findMany({
-    where: { userId: user.id, status: { not: "deleted" } },
-  });
+  // If linked, show only their characters; otherwise search all characters by name
+  const characters = user
+    ? await prisma.character.findMany({
+        where: { userId: user.id, status: { not: "deleted" } },
+      })
+    : await prisma.character.findMany({
+        where: { status: { not: "deleted" } },
+      });
 
   const choices = characters
     .map((c) => {
@@ -80,7 +76,14 @@ export async function handleRegister(interaction: ChatInputCommandInteraction) {
   // Step 1: Ensure Discord account is linked to an app user
   let user = await prisma.user.findUnique({ where: { discordId } });
 
-  if (!user && email) {
+  if (!user) {
+    if (!email) {
+      await interaction.reply({
+        content: "First-time setup: run `/register` with the `email` option set to your Kanar app login email.\nExample: `/register character:YourCharacter email:you@example.com`",
+        ephemeral: true,
+      });
+      return;
+    }
     // Try to link by email
     const byEmail = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (!byEmail) {
@@ -105,33 +108,24 @@ export async function handleRegister(interaction: ChatInputCommandInteraction) {
     user = { ...byEmail, discordId };
   }
 
-  if (!user) {
-    await interaction.reply({
-      content: "Your Discord account isn't linked yet. Run `/register` with the `email` option set to your Kanar app email to link it.",
-      ephemeral: true,
-    });
-    return;
-  }
-
-  // Step 2: Find the character — must belong to this user
-  if (characterValue === "__unlinked__") {
-    await interaction.reply({
-      content: "Your Discord account isn't linked yet. Run `/register` with the `email` option set to your Kanar app email to link it.",
-      ephemeral: true,
-    });
-    return;
-  }
-
+  // Step 2: Find the character — verify it belongs to this user
   const character = await prisma.character.findFirst({
-    where: { id: characterValue, userId: user.id, status: { not: "deleted" } },
+    where: { id: characterValue, status: { not: "deleted" } },
   });
 
-  // Fallback: if they typed a name instead of using autocomplete
   let charData: { name: string; race: string; characterClass: string; level: number } | null = null;
   if (character) {
+    // Verify ownership
+    if (character.userId !== user.id) {
+      await interaction.reply({
+        content: "That character doesn't belong to your account.",
+        ephemeral: true,
+      });
+      return;
+    }
     charData = JSON.parse(character.data as string);
   } else {
-    // Try name match against their own characters only
+    // Fallback: typed a name instead of using autocomplete — match against own characters
     const allChars = await prisma.character.findMany({
       where: { userId: user.id, status: { not: "deleted" } },
     });
