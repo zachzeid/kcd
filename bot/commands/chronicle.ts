@@ -79,9 +79,15 @@ export async function handleChronicle(interaction: ChatInputCommandInteraction) 
     });
 
     collector.on("collect", async (confirm) => {
-      try {
-        if (confirm.customId === "chronicle_approve") {
+      if (confirm.customId === "chronicle_approve") {
+        try {
           await confirm.deferUpdate();
+        } catch (err) {
+          console.error("Failed to defer button update:", err);
+          return;
+        }
+
+        try {
           const saved = await saveChronicle(session, result, interaction.user.id);
 
           const savedEmbed = new EmbedBuilder()
@@ -98,16 +104,26 @@ export async function handleChronicle(interaction: ChatInputCommandInteraction) 
 
           endSession(channelId);
           await interaction.editReply({ content: null, embeds: [savedEmbed], components: [] });
-        } else {
+        } catch (err) {
+          console.error("Chronicle save failed:", err);
+          endSession(channelId);
+          await interaction.editReply({
+            content: `Save failed: ${err instanceof Error ? err.message : "Unknown error"}. Session ended.`,
+            embeds: [],
+            components: [],
+          });
+        }
+      } else {
+        try {
           endSession(channelId);
           await confirm.update({
             content: "Chronicle discarded. The recording session has ended.",
             embeds: [],
             components: [],
           });
+        } catch (err) {
+          console.error("Chronicle discard failed:", err);
         }
-      } catch (err) {
-        console.error("Chronicle button handler error:", err);
       }
     });
 
