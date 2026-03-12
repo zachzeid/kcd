@@ -13,6 +13,7 @@ model User {
   name           String
   hashedPassword String
   role           String      @default("user") // user, admin, cbd, gm, economy_marshal, play_master
+  discordId      String?     @unique
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   characters     Character[]

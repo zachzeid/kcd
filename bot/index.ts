@@ -2,7 +2,7 @@ import { Client, GatewayIntentBits, Collection, Events } from "discord.js";
 import { config, validateConfig } from "./config.js";
 import { eventStartCommand, handleEventStart } from "./commands/event-start.js";
 import { chronicleCommand, handleChronicle } from "./commands/chronicle.js";
-import { registerCommand, handleRegister } from "./commands/register.js";
+import { registerCommand, handleRegister, handleRegisterAutocomplete } from "./commands/register.js";
 import { rosterCommand, handleRoster } from "./commands/roster.js";
 import { recordMessage, getActiveSession } from "./agent/recorder.js";
 
@@ -28,6 +28,19 @@ commands.set("event-start", { data: eventStartCommand(), execute: handleEventSta
 commands.set("chronicle", { data: chronicleCommand(), execute: handleChronicle });
 commands.set("register", { data: registerCommand(), execute: handleRegister });
 commands.set("roster", { data: rosterCommand(), execute: handleRoster });
+
+// Handle autocomplete
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isAutocomplete()) return;
+
+  if (interaction.commandName === "register") {
+    try {
+      await handleRegisterAutocomplete(interaction);
+    } catch (err) {
+      console.error("Autocomplete error:", err);
+    }
+  }
+});
 
 // Handle slash commands
 client.on(Events.InteractionCreate, async (interaction) => {
