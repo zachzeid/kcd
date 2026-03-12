@@ -5,6 +5,7 @@ import EncountersTab from "./EncountersTab";
 import MonsterBookTab from "./MonsterBookTab";
 import NPCBookTab from "./NPCBookTab";
 import LocationsTab from "./LocationsTab";
+import EventLoreTab from "./EventLoreTab";
 
 interface EventRow {
   id: string;
@@ -616,12 +617,7 @@ export default function GMDepartment() {
       ) : subTab === "locations" ? (
         <LocationsTab />
       ) : (
-        <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
-          <p className="text-gray-500">Lore Management</p>
-          <p className="text-gray-600 text-xs mt-2">
-            Lore entries, world-building documents, and in-game history management will be available here.
-          </p>
-        </div>
+        <EventLoreTab />
       )}
 
       {/* Check-in Modal */}

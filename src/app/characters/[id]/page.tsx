@@ -214,6 +214,7 @@ export default function CharacterSummaryPage() {
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditSearch, setAuditSearch] = useState("");
+  const [viewTab, setViewTab] = useState<"sheet" | "lore">("sheet");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -350,6 +351,33 @@ export default function CharacterSummaryPage() {
         </div>
       </header>
 
+      {/* Tab bar */}
+      <div className="max-w-4xl mx-auto px-4 pt-4">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setViewTab("sheet")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              viewTab === "sheet" ? "bg-amber-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+            }`}
+          >
+            Character Sheet
+          </button>
+          <button
+            onClick={() => setViewTab("lore")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${
+              viewTab === "lore" ? "bg-amber-600 text-white" : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+            }`}
+          >
+            Character Lore
+            {chronicles.length > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-amber-800 text-amber-200">
+                {chronicles.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
       <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
         {/* Owner info (if available) */}
         {character.userName && (
@@ -378,6 +406,86 @@ export default function CharacterSummaryPage() {
             </p>
           </div>
         )}
+
+        {viewTab === "lore" ? (
+          /* ─── Character Lore Tab ─── */
+          <div className="space-y-6">
+            {/* Event Chronicles */}
+            {chronicles.length > 0 ? (
+              <div className="space-y-4">
+                <h2 className="text-lg font-bold text-amber-500 border-b border-gray-800 pb-2">
+                  Event Chronicles
+                  <span className="text-gray-600 text-sm font-normal ml-2">({chronicles.length})</span>
+                </h2>
+                {chronicles.map((c) => (
+                  <div
+                    key={c.id}
+                    className="p-4 bg-gray-900 rounded-lg border border-gray-800"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-white font-medium">{c.chronicleTitle}</span>
+                      <span className="text-gray-500 text-xs">
+                        {new Date(c.eventDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="text-amber-500/70 text-xs mb-2">{c.eventName}</div>
+                    <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
+                      {c.summary}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 bg-gray-900/30 rounded-lg border border-gray-800">
+                <p className="text-gray-500">No event lore for this character yet.</p>
+                <p className="text-gray-600 text-xs mt-2">
+                  Chronicles are generated from Discord RP sessions using the Chronicler bot.
+                </p>
+              </div>
+            )}
+
+            {/* Mystic Quill Mentions */}
+            {loreMentions.length > 0 && (
+              <div className="space-y-3">
+                <h2 className="text-lg font-bold text-amber-500 border-b border-gray-800 pb-2">
+                  Mystic Quill Mentions
+                  <span className="text-gray-600 text-sm font-normal ml-2">({loreMentions.length})</span>
+                </h2>
+                {loreMentions.map((entry) => (
+                  <Link
+                    key={entry.id}
+                    href={entry.sourceUrl ?? `/compendium?q=${encodeURIComponent(entry.title)}`}
+                    target={entry.sourceUrl ? "_blank" : undefined}
+                    className="block p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-amber-800/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-white font-medium text-sm">{entry.title}</span>
+                      <span className="text-gray-500 text-xs">
+                        {entry.source}
+                        {entry.year && ` (${entry.year})`}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-xs leading-relaxed">{entry.summary}</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            {/* Character History/Backstory */}
+            {d.history && (
+              <div>
+                <h2 className="text-lg font-bold text-amber-500 border-b border-gray-800 pb-2 mb-3">
+                  Backstory
+                </h2>
+                <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
+                  {d.history}
+                </p>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ─── Character Sheet Tab ─── */
+          <div className="space-y-6">
 
         {/* Stats overview */}
         <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
@@ -619,71 +727,6 @@ export default function CharacterSummaryPage() {
           </CollapsibleSection>
         )}
 
-        {/* Character History/Backstory */}
-        {d.history && (
-          <CollapsibleSection title="Character History">
-            <p className="text-gray-300 text-sm whitespace-pre-wrap leading-relaxed">
-              {d.history}
-            </p>
-          </CollapsibleSection>
-        )}
-
-        {/* Mystic Quill Mentions */}
-        {loreMentions.length > 0 && (
-          <CollapsibleSection title="Mystic Quill Mentions" count={loreMentions.length}>
-            <div className="space-y-3">
-              {loreMentions.map((entry) => (
-                <Link
-                  key={entry.id}
-                  href={entry.sourceUrl ?? `/compendium?q=${encodeURIComponent(entry.title)}`}
-                  target={entry.sourceUrl ? "_blank" : undefined}
-                  className="block p-3 bg-gray-900 rounded-lg border border-gray-800 hover:border-amber-800/50 transition-colors"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-white font-medium text-sm">
-                      {entry.title}
-                    </span>
-                    <span className="text-gray-500 text-xs">
-                      {entry.source}
-                      {entry.year && ` (${entry.year})`}
-                    </span>
-                  </div>
-                  <p className="text-gray-400 text-xs leading-relaxed">
-                    {entry.summary}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* Event Chronicles */}
-        {chronicles.length > 0 && (
-          <CollapsibleSection title="Event Chronicles" count={chronicles.length}>
-            <div className="space-y-3">
-              {chronicles.map((c) => (
-                <div
-                  key={c.id}
-                  className="p-3 bg-gray-900 rounded-lg border border-gray-800"
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-white font-medium text-sm">
-                      {c.chronicleTitle}
-                    </span>
-                    <span className="text-gray-500 text-xs">
-                      {new Date(c.eventDate).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="text-amber-500/70 text-xs mb-1.5">{c.eventName}</div>
-                  <p className="text-gray-400 text-sm leading-relaxed whitespace-pre-wrap">
-                    {c.summary}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
-
         {/* Activity Log */}
         {auditLogs.length > 0 && (
           <CollapsibleSection title="Activity Log" count={auditLogs.length} defaultOpen={character.status === "rejected"}>
@@ -764,6 +807,8 @@ export default function CharacterSummaryPage() {
                 })}
             </div>
           </CollapsibleSection>
+        )}
+        </div>
         )}
 
         {/* Metadata */}
